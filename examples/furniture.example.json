@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "spaceId": "example-bedroom",
+  "items": [
+    {
+      "id": "desk-candidate-01",
+      "name": "160 cm Desk",
+      "category": "desk",
+      "dimensions": { "width": 1600, "depth": 750, "height": 740 },
+      "transform": { "x": 400, "y": 2200, "z": 0, "rotationZ": 0 },
+      "clearance": { "front": 900, "back": 0, "left": 100, "right": 100 }
+    }
+  ]
+}

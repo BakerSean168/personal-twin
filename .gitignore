@@ -1,0 +1,30 @@
+# Public repository: personal source-of-truth data is private by default
+data/private/**
+!data/private/.gitkeep
+source/private/**
+exports/private/**
+
+# Local overrides / secrets
+.env
+.env.*
+!.env.example
+*.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Temporary / render files
+*.tmp
+*.bak
+*.blend1
+*.blend2
+*.autosave

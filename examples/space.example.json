@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "spaceId": "example-bedroom",
+  "name": "Example Bedroom",
+  "updatedAt": "2026-09-30",
+  "coordinateSystem": {
+    "origin": "south_west_floor",
+    "xAxis": "east",
+    "yAxis": "north",
+    "zAxis": "up",
+    "lengthUnit": "mm"
+  },
+  "dimensions": {
+    "length": 4200,
+    "width": 3100,
+    "height": 2750
+  },
+  "openings": [
+    {
+      "id": "door-01",
+      "type": "door",
+      "wall": "south",
+      "offsetFromWallStart": 300,
+      "width": 850,
+      "height": 2050,
+      "sillHeight": 0
+    },
+    {
+      "id": "window-01",
+      "type": "window",
+      "wall": "north",
+      "offsetFromWallStart": 1100,
+      "width": 1600,
+      "height": 1300,
+      "sillHeight": 900
+    }
+  ],
+  "fixedObjects": []
+}

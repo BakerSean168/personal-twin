@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.example.invalid/personal-twin/space.schema.json",
+  "title": "Personal Twin Rectangular Space",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "spaceId", "name", "dimensions"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "spaceId": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "updatedAt": { "type": "string", "format": "date" },
+    "coordinateSystem": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "origin": { "const": "south_west_floor" },
+        "xAxis": { "const": "east" },
+        "yAxis": { "const": "north" },
+        "zAxis": { "const": "up" },
+        "lengthUnit": { "const": "mm" }
+      }
+    },
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["length", "width", "height"],
+      "properties": {
+        "length": { "type": "number", "exclusiveMinimum": 0 },
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "openings": { "type": "array", "items": { "$ref": "#/$defs/opening" } },
+    "fixedObjects": { "type": "array", "items": { "$ref": "#/$defs/fixedObject" } }
+  },
+  "$defs": {
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "z"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "z": { "type": "number" }
+      }
+    },
+    "size3d": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "depth", "height"],
+      "properties": {
+        "width": { "type": "number", "minimum": 0 },
+        "depth": { "type": "number", "minimum": 0 },
+        "height": { "type": "number", "minimum": 0 }
+      }
+    },
+    "opening": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "wall", "offsetFromWallStart", "width", "height"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "enum": ["door", "window"] },
+        "wall": { "type": "string", "enum": ["north", "east", "south", "west"] },
+        "offsetFromWallStart": { "type": "number", "minimum": 0 },
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 },
+        "sillHeight": { "type": "number", "minimum": 0 },
+        "notes": { "type": "string" }
+      }
+    },
+    "fixedObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "position", "size"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "enum": ["socket", "network", "hvac", "column", "radiator", "other"] },
+        "position": { "$ref": "#/$defs/position" },
+        "size": { "$ref": "#/$defs/size3d" },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}

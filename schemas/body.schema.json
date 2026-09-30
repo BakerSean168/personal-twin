@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.example.invalid/personal-twin/body.schema.json",
+  "title": "Personal Twin Body Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "profileId", "measurements"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "profileId": { "type": "string", "minLength": 1 },
+    "updatedAt": { "type": "string", "format": "date" },
+    "measurements": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "height": { "$ref": "#/$defs/lengthMeasurement" },
+        "weight": { "$ref": "#/$defs/massMeasurement" },
+        "shoulderBreadth": { "$ref": "#/$defs/lengthMeasurement" },
+        "chestCircumference": { "$ref": "#/$defs/lengthMeasurement" },
+        "waistCircumference": { "$ref": "#/$defs/lengthMeasurement" },
+        "hipCircumference": { "$ref": "#/$defs/lengthMeasurement" },
+        "torsoLength": { "$ref": "#/$defs/lengthMeasurement" },
+        "armLength": { "$ref": "#/$defs/lengthMeasurement" },
+        "inseam": { "$ref": "#/$defs/lengthMeasurement" },
+        "outseam": { "$ref": "#/$defs/lengthMeasurement" },
+        "foot": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "left": { "$ref": "#/$defs/foot" },
+            "right": { "$ref": "#/$defs/foot" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "measurementMeta": {
+      "type": "object",
+      "required": ["method"],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": ["manual_tape", "device_scan", "imported", "mesh", "inferred", "unknown"]
+        },
+        "measuredAt": { "type": "string", "format": "date" },
+        "confidence": { "type": "string", "enum": ["low", "medium", "high"] },
+        "notes": { "type": "string" }
+      }
+    },
+    "lengthMeasurement": {
+      "allOf": [
+        { "$ref": "#/$defs/measurementMeta" },
+        {
+          "type": "object",
+          "required": ["value", "unit"],
+          "properties": {
+            "value": { "type": "number", "exclusiveMinimum": 0 },
+            "unit": { "const": "mm" }
+          }
+        }
+      ]
+    },
+    "massMeasurement": {
+      "allOf": [
+        { "$ref": "#/$defs/measurementMeta" },
+        {
+          "type": "object",
+          "required": ["value", "unit"],
+          "properties": {
+            "value": { "type": "number", "exclusiveMinimum": 0 },
+            "unit": { "const": "kg" }
+          }
+        }
+      ]
+    },
+    "foot": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "length": { "$ref": "#/$defs/lengthMeasurement" },
+        "width": { "$ref": "#/$defs/lengthMeasurement" }
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*.sh3d binary
+*.blend binary
+*.mhm text
+*.glb binary
+*.gltf text
+*.obj text
+*.mtl text

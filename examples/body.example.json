@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "profileId": "example-person",
+  "updatedAt": "2026-09-30",
+  "measurements": {
+    "height": {
+      "value": 1750,
+      "unit": "mm",
+      "method": "manual_tape",
+      "measuredAt": "2026-09-30",
+      "confidence": "high"
+    },
+    "weight": {
+      "value": 68,
+      "unit": "kg",
+      "method": "unknown",
+      "measuredAt": "2026-09-30",
+      "confidence": "high"
+    },
+    "chestCircumference": {
+      "value": 950,
+      "unit": "mm",
+      "method": "manual_tape",
+      "measuredAt": "2026-09-30",
+      "confidence": "medium"
+    },
+    "foot": {
+      "left": {
+        "length": {
+          "value": 263,
+          "unit": "mm",
+          "method": "manual_tape",
+          "measuredAt": "2026-09-30",
+          "confidence": "medium"
+        }
+      },
+      "right": {
+        "length": {
+          "value": 266,
+          "unit": "mm",
+          "method": "manual_tape",
+          "measuredAt": "2026-09-30",
+          "confidence": "medium"
+        }
+      }
+    }
+  }
+}
