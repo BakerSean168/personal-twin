@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export XDG_SESSION_TYPE=x11
+unset WAYLAND_DISPLAY || true
+startup=/usr/local/lib/personal-twin/blender_startup.py
+blend_file=/data/body/avatar.blend
+
+if [[ -f "$blend_file" ]]; then
+  exec /opt/blender/blender --online-mode "$blend_file" --python "$startup"
+fi
+
+exec /opt/blender/blender --online-mode --python "$startup"

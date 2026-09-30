@@ -47,6 +47,18 @@ The project keeps canonical measurements separate from editor-specific 3D files 
 4. Compose/export through Blender.
 5. Use structured measurements for fit decisions and the mesh for visualization.
 
+
+## V1 web workbench
+
+V1 runs the mature native editors in a browser-accessible GCP dev workbench instead of rebuilding them:
+
+- Sweet Home 3D for room/furniture editing.
+- Blender + MPFB for body/avatar generation and editing.
+- Sweet Home 3D MCP and Blender MCP for AI operations.
+- Tailscale Serve for private browser/MCP access.
+
+Start with `./scripts/workbench-up.sh` and verify with `./scripts/workbench-smoke.sh`. See `docs/workbench.md` for ports, runtime layout and operating rules.
+
 ## Validate examples
 
     python3 -m pip install -r requirements-dev.txt

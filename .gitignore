@@ -22,6 +22,10 @@ Thumbs.db
 .idea/
 .vscode/
 
+# Runtime/private workbench state
+runtime/
+.cache/
+
 # Temporary / render files
 *.tmp
 *.bak

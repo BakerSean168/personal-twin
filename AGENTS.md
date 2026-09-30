@@ -42,3 +42,15 @@ The GitHub repository is public.
 ## Verification
 
     python3 scripts/validate_json.py
+
+## Runtime workbench and MCP
+
+On GCP dev, the V1 workbench owns ports 21020-21022:
+
+- browser workbench: `http://127.0.0.1:21020`
+- Sweet Home 3D MCP: `http://127.0.0.1:21021/mcp` (Streamable HTTP)
+- Blender MCP: `http://127.0.0.1:21022/sse` (SSE)
+
+Actual private runtime data lives under `runtime/` and is ignored by Git. Read `runtime/data/canonical/` for factual measurements. Use Sweet Home 3D MCP for room/furniture scene operations and Blender MCP for body/avatar or general 3D scene operations.
+
+Do not replace the native editors with a custom editor unless the user explicitly changes the product direction.

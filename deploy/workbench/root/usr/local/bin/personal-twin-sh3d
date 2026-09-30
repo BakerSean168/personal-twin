@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+app=/opt/sweethome3d
+java=/usr/lib/jvm/java-21-openjdk-amd64/bin/java
+cp="$app/lib/SweetHome3D.jar:$app/lib/Furniture.jar:$app/lib/Textures.jar:$app/lib/Examples.jar:$app/lib/Help.jar:$app/lib/batik-svgpathparser-1.7.jar:$app/lib/jeksparser-calculator.jar:$app/lib/iText-2.1.7.jar:$app/lib/freehep-vectorgraphics-svg-2.1.1c.jar:$app/lib/sunflow-0.07.3i.jar:$app/lib/jmf.jar:$app/lib/java3d-1.6/j3dcore.jar:$app/lib/java3d-1.6/j3dutils.jar:$app/lib/java3d-1.6/vecmath.jar:$app/lib/java3d-1.6/gluegen-rt.jar:$app/lib/java3d-1.6/jogl-java3d.jar:$app/lib/jnlp.jar"
+args=(
+  --add-opens=java.desktop/sun.awt=ALL-UNNAMED
+  -Xmx2g
+  -classpath "$cp"
+  "-Djava.library.path=$app/lib/java3d-1.6:$app/lib/yafaray"
+  -Djogamp.gluegen.UseTempJarCache=false
+  '-Dcom.eteks.sweethome3d.applicationId=SweetHome3D#Installer'
+  com.eteks.sweethome3d.SweetHome3D
+)
+
+home_file=/data/spaces/bedroom/bedroom.sh3d
+if [[ -f "$home_file" ]]; then
+  args+=( -open "$home_file" )
+fi
+
+exec "$java" "${args[@]}"

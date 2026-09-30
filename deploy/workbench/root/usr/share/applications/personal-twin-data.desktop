@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Personal Twin Data
+Comment=Open the shared personal-twin data directory
+Exec=thunar /data
+Icon=folder
+Terminal=false
+Categories=Utility;

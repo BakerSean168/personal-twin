@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Sweet Home 3D
+Comment=Edit the personal room model
+Exec=/usr/local/bin/personal-twin-sh3d
+Icon=applications-graphics
+Terminal=false
+Categories=Graphics;

@@ -1,0 +1,14 @@
+#!/usr/bin/with-contenv bash
+set -euo pipefail
+
+exec s6-setuidgid abc env \
+  HOME=/config \
+  XDG_CONFIG_HOME=/config/.config \
+  BLENDER_MCP_HOST=127.0.0.1 \
+  BLENDER_MCP_PORT=9876 \
+  /opt/personal-twin/mcp-venv/bin/mcp-proxy \
+  --host 0.0.0.0 \
+  --port 9878 \
+  --pass-environment \
+  -- \
+  /opt/personal-twin/mcp-venv/bin/blender-mcp

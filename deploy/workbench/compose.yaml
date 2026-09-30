@@ -1,0 +1,21 @@
+services:
+  workbench:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: personal-twin-workbench:local
+    container_name: personal-twin-workbench
+    restart: unless-stopped
+    shm_size: "2gb"
+    environment:
+      PUID: "1001"
+      PGID: "1002"
+      TZ: Asia/Tokyo
+      TITLE: Personal Twin Workbench
+    volumes:
+      - ../../runtime/workbench/config:/config
+      - ../../runtime/data:/data
+    ports:
+      - "127.0.0.1:21020:3000"
+      - "127.0.0.1:21021:9879"
+      - "127.0.0.1:21022:9878"

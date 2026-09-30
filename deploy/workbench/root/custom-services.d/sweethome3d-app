@@ -1,0 +1,7 @@
+#!/usr/bin/with-contenv bash
+set -euo pipefail
+for _ in $(seq 1 90); do
+  [ -S /tmp/.X11-unix/X1 ] && break
+  sleep 1
+done
+exec s6-setuidgid abc env HOME=/config XDG_CONFIG_HOME=/config/.config DISPLAY=:1 /usr/local/bin/personal-twin-sh3d >>/config/sh3d.log 2>&1

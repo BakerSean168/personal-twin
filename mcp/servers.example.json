@@ -1,0 +1,10 @@
+{
+  "sweet-home-3d": {
+    "transport": "streamable-http",
+    "url": "http://127.0.0.1:21021/mcp"
+  },
+  "blender": {
+    "transport": "sse",
+    "url": "http://127.0.0.1:21022/sse"
+  }
+}

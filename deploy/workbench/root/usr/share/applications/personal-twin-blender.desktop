@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Blender + MPFB
+Comment=Create and edit the personal body avatar
+Exec=/usr/local/bin/personal-twin-blender
+Icon=blender
+Terminal=false
+Categories=Graphics;

@@ -1,0 +1,60 @@
+#!/usr/bin/with-contenv bash
+set -euo pipefail
+
+echo "[personal-twin] preparing persistent workspace"
+
+install -d -o abc -g abc \
+  /config/.personal-twin \
+  /config/.sweethome3d/plugins \
+  /config/.eteks/sweethome3d/plugins \
+  /config/.config/blender \
+  /config/Desktop \
+  /data/spaces/bedroom \
+  /data/body \
+  /data/exports
+
+install -o abc -g abc -m 0644 \
+  /opt/personal-twin/extensions/sh3d-mcp-plugin.sh3p \
+  /config/.sweethome3d/plugins/sh3d-mcp-plugin.sh3p
+install -o abc -g abc -m 0644 \
+  /opt/personal-twin/extensions/sh3d-mcp-plugin.sh3p \
+  /config/.eteks/sweethome3d/plugins/sh3d-mcp-plugin.sh3p
+
+cat > /config/.sweethome3d/plugins/sh3d-mcp.properties <<'EOF'
+port=9877
+autoStart=true
+logLevel=INFO
+EOF
+cp /config/.sweethome3d/plugins/sh3d-mcp.properties /config/.eteks/sweethome3d/plugins/sh3d-mcp.properties
+chown abc:abc /config/.sweethome3d/plugins/sh3d-mcp.properties /config/.eteks/sweethome3d/plugins/sh3d-mcp.properties
+
+for launcher in /usr/share/applications/personal-twin-*.desktop; do
+  install -o abc -g abc -m 0755 "$launcher" "/config/Desktop/$(basename "$launcher")"
+done
+
+install_extension() {
+  local id="$1"
+  local archive="$2"
+  local marker="/config/.personal-twin/blender-extension-${id}.installed"
+
+  if [ -f "$marker" ]; then
+    return 0
+  fi
+
+  echo "[personal-twin] installing Blender extension: $id"
+  s6-setuidgid abc env \
+    HOME=/config \
+    XDG_CONFIG_HOME=/config/.config \
+    /opt/blender/blender --background \
+      --command extension install-file -r user_default -e "$archive"
+
+  touch "$marker"
+  chown abc:abc "$marker"
+}
+
+install_extension mpfb /opt/personal-twin/extensions/mpfb.zip
+install_extension mcp /opt/personal-twin/extensions/blender-mcp.zip
+
+chown -R abc:abc /data /config/.personal-twin /config/.sweethome3d /config/.eteks /config/.config/blender /config/Desktop
+
+echo "[personal-twin] workspace ready"
