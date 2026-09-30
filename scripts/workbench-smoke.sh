@@ -6,11 +6,48 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 curl -fsS --max-time 10 http://127.0.0.1:21020/ >/dev/null
 printf 'OK web workbench\n'
 
+tailnet_host=""
+if command -v tailscale >/dev/null 2>&1; then
+  tailnet_host="$(tailscale status --json | python3 -c 'import json,sys; print(json.load(sys.stdin).get("Self",{}).get("DNSName","").rstrip("."))')"
+fi
+python3 - "$repo_root/runtime/data/mcp/servers.json" "$tailnet_host" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+registry = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+tailnet_host = sys.argv[2]
+expected = {
+    "personal-twin-memory": ("streamable-http", "http://127.0.0.1:21023/mcp", 21023, "/mcp"),
+    "sweet-home-3d": ("streamable-http", "http://127.0.0.1:21021/mcp", 21021, "/mcp"),
+    "blender": ("sse", "http://127.0.0.1:21022/sse", 21022, "/sse"),
+}
+for name, (transport, local_url, port, suffix) in expected.items():
+    entry = registry[name]
+    assert entry["transport"] == transport
+    assert entry["localUrl"] == local_url
+    if tailnet_host:
+        assert entry["tailnetUrl"] == f"https://{tailnet_host}:{port}{suffix}"
+print(f"OK MCP registry: {len(expected)} services" + (" with tailnet URLs" if tailnet_host else ""))
+PY
+
+if [[ -n "$tailnet_host" ]]; then
+  serve_status="$(tailscale serve status)"
+  for port in 21020 21021 21022 21023; do
+    grep -Fq "https://$tailnet_host:$port" <<<"$serve_status" || {
+      printf 'Missing Tailscale Serve endpoint for port %s\n' "$port" >&2
+      exit 1
+    }
+  done
+  printf 'OK Tailscale Serve: Webtop + 3 MCP endpoints\n'
+fi
+
 python3 - <<'PY'
 import json
+import os
 import urllib.request
 
-base = "http://127.0.0.1:21021/mcp"
+base = os.environ.get("PERSONAL_TWIN_SH3D_MCP_URL", "http://127.0.0.1:21021/mcp")
 
 def post(payload, sid=None):
     req = urllib.request.Request(
@@ -27,6 +64,20 @@ def post(payload, sid=None):
         raw = resp.read()
         return resp.headers, json.loads(raw) if raw else None
 
+def call_tool(sid, request_id, name, arguments):
+    _, response = post({
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "method": "tools/call",
+        "params": {"name": name, "arguments": arguments},
+    }, sid)
+    if "error" in response:
+        raise RuntimeError(response["error"])
+    result = response["result"]
+    if result.get("isError"):
+        raise RuntimeError(result)
+    return json.loads(result["content"][0]["text"])
+
 headers, _ = post({
     "jsonrpc": "2.0",
     "id": 1,
@@ -39,20 +90,31 @@ headers, _ = post({
 })
 sid = headers.get("Mcp-Session-Id")
 post({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}, sid)
-_, state = post({
-    "jsonrpc": "2.0",
-    "id": 2,
-    "method": "tools/call",
-    "params": {"name": "get_state", "arguments": {}},
-}, sid)
-content = state["result"]["content"][0]["text"]
-scene = json.loads(content)
+scene = call_tool(sid, 2, "get_state", {})
 assert scene["wallCount"] >= 4
 assert scene["roomCount"] >= 1
 print(f'OK Sweet Home 3D MCP: {scene["wallCount"]} walls, {scene["roomCount"]} room(s)')
+
+marker = "__personal_twin_write_smoke__"
+checkpoint = call_tool(sid, 3, "checkpoint", {"description": "Personal Twin reversible write smoke"})
+try:
+    call_tool(sid, 4, "add_label", {"text": marker, "x": 0, "y": 0})
+    changed = call_tool(sid, 5, "get_state", {})
+    assert any(label.get("text") == marker for label in changed.get("labels", []))
+finally:
+    call_tool(sid, 6, "restore_checkpoint", {"id": checkpoint["id"], "force": True})
+restored = call_tool(sid, 7, "get_state", {})
+assert not any(label.get("text") == marker for label in restored.get("labels", []))
+print("OK Sweet Home 3D MCP reversible write")
 PY
 
-docker exec -i personal-twin-workbench /opt/personal-twin/mcp-venv/bin/python - <<'PY'
+workbench_container="$(docker compose -f "$repo_root/deploy/workbench/compose.yaml" ps -q workbench)"
+if [[ -z "$workbench_container" ]]; then
+  printf 'Personal Twin workbench container is not running\n' >&2
+  exit 1
+fi
+
+docker exec -i "$workbench_container" /opt/personal-twin/mcp-venv/bin/python - <<'PY'
 import asyncio
 from mcp import ClientSession
 from mcp.client.sse import sse_client
@@ -61,16 +123,61 @@ async def main():
     async with sse_client("http://127.0.0.1:9878/sse") as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
+            marker = "__PersonalTwinWriteSmoke__"
+            create = await session.call_tool(
+                "execute_blender_code",
+                {
+                    "code": (
+                        "import bpy\n"
+                        f"name = {marker!r}\n"
+                        "old = bpy.data.objects.get(name)\n"
+                        "if old is not None: bpy.data.objects.remove(old, do_unlink=True)\n"
+                        "obj = bpy.data.objects.new(name, None)\n"
+                        "bpy.context.scene.collection.objects.link(obj)\n"
+                        "result = {'created': bpy.data.objects.get(name) is not None}\n"
+                    )
+                },
+            )
+            assert not create.isError
+            result = await session.call_tool("get_objects_summary", {})
+            data = result.structuredContent or {}
+            scene = data.get("result", {})
+            def collect_objects(collection):
+                objects = list(collection.get("objects", []))
+                for child in collection.get("children", []):
+                    objects.extend(collect_objects(child))
+                return objects
+
+            objects = []
+            for collection in scene.get("collections", []):
+                objects.extend(collect_objects(collection))
+            names = [obj.get("name") for obj in objects]
+            assert "PersonalTwinAvatar" in names
+            assert marker in names
+
+            removed = await session.call_tool(
+                "execute_blender_code",
+                {
+                    "code": (
+                        "import bpy\n"
+                        f"name = {marker!r}\n"
+                        "obj = bpy.data.objects.get(name)\n"
+                        "if obj is not None: bpy.data.objects.remove(obj, do_unlink=True)\n"
+                        "result = {'removed': bpy.data.objects.get(name) is None}\n"
+                    )
+                },
+            )
+            assert not removed.isError
             result = await session.call_tool("get_objects_summary", {})
             data = result.structuredContent or {}
             scene = data.get("result", {})
             objects = []
             for collection in scene.get("collections", []):
-                for child in collection.get("children", []):
-                    objects.extend(child.get("objects", []))
+                objects.extend(collect_objects(collection))
             names = [obj.get("name") for obj in objects]
+            assert marker not in names
             assert "PersonalTwinAvatar" in names
-            print(f"OK Blender MCP: objects={names}")
+            print(f"OK Blender MCP reversible write; objects={names}")
 
 asyncio.run(main())
 PY
@@ -78,3 +185,5 @@ PY
 test -f "$repo_root/runtime/data/spaces/bedroom/bedroom.sh3d"
 test -f "$repo_root/runtime/data/body/avatar.blend"
 printf 'OK source assets present\n'
+
+python3 "$repo_root/scripts/memory-smoke.py"

@@ -9,6 +9,7 @@ V1 deliberately reuses mature native editors instead of implementing a custom 3D
 - Blender 5.1.2: general 3D workbench.
 - MPFB 2.0.17: parametric human generation/editing inside Blender.
 - Blender MCP 1.0.0: AI inspection and scene editing.
+- Personal Twin Memory MCP: durable private AI notes plus read-only access to canonical JSON.
 - LinuxServer Webtop: browser delivery of the native desktop applications.
 - Tailscale Serve: private HTTPS ingress for the workbench and MCP endpoints.
 
@@ -20,6 +21,7 @@ The runtime is intentionally ignored by Git:
 - `runtime/data/spaces/`: Sweet Home 3D source files.
 - `runtime/data/body/`: Blender/MPFB body source files.
 - `runtime/data/exports/`: derived web/export assets.
+- `runtime/data/memory/`: durable AI memory records, separate from canonical facts.
 - `runtime/data/mcp/servers.json`: actual local/tailnet MCP endpoints.
 - `runtime/workbench/config/`: persistent editor preferences and installed extensions.
 
@@ -32,6 +34,7 @@ The public repository contains only code, schemas, documentation and sanitized e
 | 21020 | Browser workbench |
 | 21021 | Sweet Home 3D MCP (Streamable HTTP `/mcp`) |
 | 21022 | Blender MCP (SSE `/sse`) |
+| 21023 | Personal Twin Memory MCP (Streamable HTTP `/mcp`) |
 
 All host ports bind to loopback. Remote access is provided through Tailscale Serve only.
 
@@ -39,7 +42,7 @@ All host ports bind to loopback. Remote access is provided through Tailscale Ser
 
 Run `./scripts/workbench-up.sh`.
 
-The start script prints the node-specific Tailscale HTTPS URL. The public repository intentionally does not hardcode the private tailnet hostname.
+The start script exposes Webtop plus all three MCP services through Tailscale Serve when Tailscale is available, including Personal Twin Memory MCP on port 21023. It also regenerates `runtime/data/mcp/servers.json` from the fixed local ports and the current node DNS name, so local and tailnet endpoints cannot silently drift. The public repository intentionally does not hardcode the private tailnet hostname.
 
 The desktop auto-starts Sweet Home 3D and Blender + MPFB. Desktop shortcuts are also available if either application is closed.
 
@@ -47,7 +50,7 @@ The desktop auto-starts Sweet Home 3D and Blender + MPFB. Desktop shortcuts are 
 
 Run `./scripts/workbench-smoke.sh`.
 
-The smoke test verifies Webtop, Sweet Home 3D MCP, Blender MCP, and required source assets.
+The smoke test verifies Webtop, the generated three-service MCP registry, active Tailscale Serve entries for Webtop plus all three MCP ports, required source assets, and a create/read/list/delete round trip through Personal Twin Memory MCP. It also performs reversible editor write checks: Sweet Home 3D creates a temporary label behind a checkpoint and restores the checkpoint, while Blender creates and removes a temporary scene object through `execute_blender_code`. The memory service also exposes read-only `canonical_list` / `canonical_read` tools so an AI can retrieve factual measurements without treating notes as the source of truth.
 
 ## Current V1 seed
 
@@ -57,4 +60,6 @@ The first body asset is a generic MPFB base human at `runtime/data/body/avatar.b
 
 ## AI operating rule
 
-Use canonical JSON for factual measurements. Use Sweet Home 3D MCP for room/furniture scene operations. Use Blender MCP for body/avatar and general 3D scene operations. Do not infer canonical body measurements from a mesh when explicit measurements exist.
+Use canonical JSON for factual measurements. Use Personal Twin Memory MCP for durable AI notes and canonical reads. Use Sweet Home 3D MCP for room/furniture scene operations. Use Blender MCP for body/avatar and general 3D scene operations. Do not infer canonical body measurements from a mesh when explicit measurements exist.
+
+The editor bridge paths are intentionally independent: Sweet Home 3D runs its plugin on container loopback `9877` and is forwarded to host `21021`; Blender MCP runs as a stdio server behind an HTTP/SSE proxy on container `9878` and host `21022`. This keeps editor-specific transports isolated from the durable memory service on `21023`.

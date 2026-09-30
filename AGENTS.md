@@ -45,12 +45,13 @@ The GitHub repository is public.
 
 ## Runtime workbench and MCP
 
-On GCP dev, the V1 workbench owns ports 21020-21022:
+On GCP dev, the V1 workbench owns ports 21020-21023:
 
 - browser workbench: `http://127.0.0.1:21020`
 - Sweet Home 3D MCP: `http://127.0.0.1:21021/mcp` (Streamable HTTP)
 - Blender MCP: `http://127.0.0.1:21022/sse` (SSE)
+- Personal Twin Memory MCP: `http://127.0.0.1:21023/mcp` (Streamable HTTP)
 
-Actual private runtime data lives under `runtime/` and is ignored by Git. Read `runtime/data/canonical/` for factual measurements. Use Sweet Home 3D MCP for room/furniture scene operations and Blender MCP for body/avatar or general 3D scene operations.
+Actual private runtime data lives under `runtime/` and is ignored by Git. Read `runtime/data/canonical/` for factual measurements. Store durable AI notes under `runtime/data/memory/` through Personal Twin Memory MCP; notes never override canonical facts. Use Sweet Home 3D MCP for room/furniture scene operations and Blender MCP for body/avatar or general 3D scene operations.
 
 Do not replace the native editors with a custom editor unless the user explicitly changes the product direction.

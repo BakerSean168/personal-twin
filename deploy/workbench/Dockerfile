@@ -71,6 +71,7 @@ RUN chmod +x \
       /usr/local/bin/personal-twin-sh3d \
       /custom-cont-init.d/10-personal-twin-init \
       /custom-services.d/blender-mcp-http \
+      /custom-services.d/personal-twin-memory \
       /custom-services.d/sh3d-mcp-forwarder \
       /custom-services.d/sweethome3d-app \
       /custom-services.d/blender-app && \
@@ -79,4 +80,4 @@ RUN chmod +x \
 ENV TITLE="Personal Twin Workbench"
 ENV TZ="Asia/Tokyo"
 
-EXPOSE 3000 3001 9878 9879
+EXPOSE 3000 3001 9878 9879 9880

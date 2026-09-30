@@ -54,10 +54,11 @@ V1 runs the mature native editors in a browser-accessible GCP dev workbench inst
 
 - Sweet Home 3D for room/furniture editing.
 - Blender + MPFB for body/avatar generation and editing.
-- Sweet Home 3D MCP and Blender MCP for AI operations.
+- Sweet Home 3D MCP and Blender MCP for AI scene operations.
+- Personal Twin Memory MCP for durable AI notes and canonical JSON reads.
 - Tailscale Serve for private browser/MCP access.
 
-Start with `./scripts/workbench-up.sh` and verify with `./scripts/workbench-smoke.sh`. See `docs/workbench.md` for ports, runtime layout and operating rules.
+Start with `./scripts/workbench-up.sh` and verify with `./scripts/workbench-smoke.sh`. Startup deterministically regenerates the local/tailnet MCP registry; smoke verification includes reversible Sweet Home 3D and Blender write-path checks plus Memory MCP CRUD. See `docs/workbench.md` for ports, runtime layout and operating rules.
 
 ## Validate examples
 

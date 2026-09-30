@@ -9,6 +9,7 @@ Personal Twin owns canonical personal spatial/body measurements and the conventi
 | Layer | Owner / format | Role |
 | --- | --- | --- |
 | Canonical facts | JSON + JSON Schema | Measurements, dimensions, provenance |
+| AI working memory | Personal Twin Memory MCP | Durable notes and references; never overrides canonical facts |
 | Space authoring | Sweet Home 3D | Human-friendly room editing |
 | Body authoring | MakeHuman / MPFB | Parametric avatar editing |
 | Composition | Blender | Combine space, body and imported assets |
@@ -20,7 +21,7 @@ Personal Twin owns canonical personal spatial/body measurements and the conventi
 
 Manual measurements/scans -> canonical JSON -> authoring tools -> Blender -> GLB/glTF -> Digital Biome/web.
 
-AI should read canonical JSON for measurements and use editor MCP integrations for spatial/scene operations.
+AI should read canonical JSON for measurements, keep durable working notes in Personal Twin Memory MCP, and use editor MCP integrations for spatial/scene operations. Memory is deliberately a separate layer so conversational notes cannot silently become measurement truth.
 
 ## Public/private boundary
 

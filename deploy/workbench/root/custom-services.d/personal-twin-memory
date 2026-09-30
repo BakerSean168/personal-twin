@@ -1,0 +1,8 @@
+#!/usr/bin/with-contenv bash
+set -euo pipefail
+
+exec s6-setuidgid abc env \
+  HOME=/config \
+  PERSONAL_TWIN_DATA_ROOT=/data \
+  /opt/personal-twin/mcp-venv/bin/python \
+  /usr/local/lib/personal-twin/memory_server.py
