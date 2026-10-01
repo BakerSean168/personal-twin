@@ -50,13 +50,14 @@ The project keeps canonical measurements separate from editor-specific 3D files 
 
 ## V1 web workbench
 
-V1 runs the mature native editors in a browser-accessible GCP dev workbench instead of rebuilding them:
+V1 keeps mature editors but avoids streaming the room editor as video:
 
-- Sweet Home 3D for room/furniture editing.
-- Blender + MPFB for body/avatar generation and editing.
-- Sweet Home 3D MCP and Blender MCP for AI scene operations.
-- Personal Twin Memory MCP for durable AI notes and canonical JSON reads.
-- Tailscale Serve for private browser/MCP access.
+- SweetHome3DJS 7.5.2 runs natively in the browser with WebGL for normal room/furniture editing.
+- Sweet Home 3D desktop remains headless/maintenance-side and exposes Sweet Home 3D MCP for AI scene operations.
+- Blender + MPFB remains in the maintenance Webtop for body/avatar generation and advanced 3D work.
+- Blender MCP exposes body/general 3D scene operations to AI.
+- Personal Twin Memory MCP stores durable AI notes and exposes canonical JSON reads.
+- Tailscale Serve provides private browser/MCP access.
 
 Start with `./scripts/workbench-up.sh` and verify with `./scripts/workbench-smoke.sh`. Startup deterministically regenerates the local/tailnet MCP registry; smoke verification includes reversible Sweet Home 3D and Blender write-path checks plus Memory MCP CRUD. See `docs/workbench.md` for ports, runtime layout and operating rules.
 

@@ -1,0 +1,9 @@
+services:
+  converter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: personal-twin-space-converter:local
+    user: "1001:1002"
+    volumes:
+      - ../../runtime/data/spaces/bedroom:/data

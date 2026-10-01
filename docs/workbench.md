@@ -4,14 +4,13 @@ V1 deliberately reuses mature native editors instead of implementing a custom 3D
 
 ## Components
 
-- Sweet Home 3D 7.5: room, wall, opening and furniture editing.
-- Sweet Home 3D MCP 1.1.0: AI access to the active home.
-- Blender 5.1.2: general 3D workbench.
-- MPFB 2.0.17: parametric human generation/editing inside Blender.
+- SweetHome3DJS 7.5.2: native browser/WebGL room, wall, opening and furniture editing.
+- Sweet Home 3D 7.5 + Sweet Home 3D MCP 1.1.0: AI-side room scene engine and maintenance editor.
+- Blender 5.1.2 + MPFB 2.0.17: body/avatar generation and advanced 3D work.
 - Blender MCP 1.0.0: AI inspection and scene editing.
 - Personal Twin Memory MCP: durable private AI notes plus read-only access to canonical JSON.
-- LinuxServer Webtop: browser delivery of the native desktop applications.
-- Tailscale Serve: private HTTPS ingress for the workbench and MCP endpoints.
+- LinuxServer Webtop: maintenance/debug access to the native desktop applications only.
+- Tailscale Serve: private HTTPS ingress for the native web editor, maintenance Webtop and MCP endpoints.
 
 ## Runtime
 
@@ -31,10 +30,11 @@ The public repository contains only code, schemas, documentation and sanitized e
 
 | Port | Service |
 | --- | --- |
-| 21020 | Browser workbench |
+| 21020 | SweetHome3DJS native WebGL editor |
 | 21021 | Sweet Home 3D MCP (Streamable HTTP `/mcp`) |
 | 21022 | Blender MCP (SSE `/sse`) |
 | 21023 | Personal Twin Memory MCP (Streamable HTTP `/mcp`) |
+| 21029 | Maintenance Webtop (Sweet Home 3D desktop + Blender/MPFB) |
 
 All host ports bind to loopback. Remote access is provided through Tailscale Serve only.
 
@@ -42,19 +42,19 @@ All host ports bind to loopback. Remote access is provided through Tailscale Ser
 
 Run `./scripts/workbench-up.sh`.
 
-The start script exposes Webtop plus all three MCP services through Tailscale Serve when Tailscale is available, including Personal Twin Memory MCP on port 21023. It also regenerates `runtime/data/mcp/servers.json` from the fixed local ports and the current node DNS name, so local and tailnet endpoints cannot silently drift. The public repository intentionally does not hardcode the private tailnet hostname.
+The start script builds the maintenance workbench and converter, temporarily stops both editor surfaces, reconciles `.sh3d` and `.sh3x` by modification time (newest wins), then starts the desktop/MCP engine and SweetHome3DJS on port 21020. Tailscale Serve exposes the native editor, maintenance Webtop and all three MCP services. It also regenerates `runtime/data/mcp/servers.json` from fixed local ports and the current node DNS name, so local and tailnet endpoints cannot silently drift. The public repository intentionally does not hardcode the private tailnet hostname.
 
-The desktop auto-starts Sweet Home 3D and Blender + MPFB. Desktop shortcuts are also available if either application is closed.
+Normal room editing should happen in SweetHome3DJS on port 21020, where rendering runs in the user's browser. Webtop on port 21029 is retained only for Blender/MPFB and maintenance/debug tasks.
 
 ## Verify
 
 Run `./scripts/workbench-smoke.sh`.
 
-The smoke test verifies Webtop, the generated three-service MCP registry, active Tailscale Serve entries for Webtop plus all three MCP ports, required source assets, and a create/read/list/delete round trip through Personal Twin Memory MCP. It also performs reversible editor write checks: Sweet Home 3D creates a temporary label behind a checkpoint and restores the checkpoint, while Blender creates and removes a temporary scene object through `execute_blender_code`. The memory service also exposes read-only `canonical_list` / `canonical_read` tools so an AI can retrieve factual measurements without treating notes as the source of truth.
+The smoke test verifies the native SweetHome3DJS page, the `bedroom.sh3x` home list and `Home.xml` archive entry, maintenance Webtop, the generated three-service MCP registry, active Tailscale Serve entries, required source assets, and a create/read/list/delete round trip through Personal Twin Memory MCP. It also performs reversible editor write checks: Sweet Home 3D creates a temporary label behind a checkpoint and restores the checkpoint, while Blender creates and removes a temporary scene object through `execute_blender_code`.
 
 ## Current V1 seed
 
-The local runtime seeds the first private room from canonical JSON. Exact residential dimensions remain in ignored runtime/private data and are not committed to this public repository. The Sweet Home 3D source is `runtime/data/spaces/bedroom/bedroom.sh3d`.
+The local runtime seeds the first private room from canonical JSON. Exact residential dimensions remain in ignored runtime/private data and are not committed to this public repository. The AI/desktop source is `runtime/data/spaces/bedroom/bedroom.sh3d`; the browser source is `runtime/data/spaces/bedroom/bedroom.sh3x`. `scripts/space-reconcile.sh` resolves restart-time drift, while `scripts/space-sync-from-web.sh` and `scripts/space-sync-to-web.sh` perform explicit live handoffs between the two official Sweet Home 3D formats. Writes use a temporary output and atomic rename so a failed conversion cannot truncate the current room file.
 
 The first body asset is a generic MPFB base human at `runtime/data/body/avatar.blend`. It is intentionally not populated with real personal measurements yet.
 

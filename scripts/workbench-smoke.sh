@@ -3,8 +3,46 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-curl -fsS --max-time 10 http://127.0.0.1:21020/ >/dev/null
-printf 'OK web workbench\n'
+native_page="$(curl -fsS --max-time 10 http://127.0.0.1:21020/)"
+grep -Fq "SweetHome3DJSApplication" <<<"$native_page"
+homes="$(curl -fsS --max-time 10 http://127.0.0.1:21020/listHomes.php)"
+python3 - "$homes" <<'PY'
+import json
+import sys
+homes = json.loads(sys.argv[1])
+assert "bedroom" in homes, homes
+PY
+unzip -l "$repo_root/runtime/data/spaces/bedroom/bedroom.sh3x" | grep -Fq "Home.xml"
+printf 'OK native SweetHome3DJS editor\n'
+
+# SweetHome3DJS may save XML-only .sh3x archives. Verify the bridge accepts
+# that exact browser-side format and can turn it back into a desktop/MCP home.
+python3 - "$repo_root/runtime/data/spaces/bedroom/bedroom.sh3x" \
+           "$repo_root/runtime/data/spaces/bedroom/__smoke_web_only__.sh3x" <<'PY'
+import sys
+import zipfile
+from pathlib import Path
+
+src = Path(sys.argv[1])
+dst = Path(sys.argv[2])
+with zipfile.ZipFile(src) as archive:
+    home_xml = archive.read("Home.xml")
+with zipfile.ZipFile(dst, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+    archive.writestr("Home.xml", home_xml)
+PY
+
+docker compose -f "$repo_root/deploy/space-converter/compose.yaml" run --rm \
+  converter \
+  /data/__smoke_web_only__.sh3x \
+  /data/__smoke_web_roundtrip__.sh3d >/dev/null
+unzip -l "$repo_root/runtime/data/spaces/bedroom/__smoke_web_roundtrip__.sh3d" | grep -Fq "Home.xml"
+rm -f \
+  "$repo_root/runtime/data/spaces/bedroom/__smoke_web_only__.sh3x" \
+  "$repo_root/runtime/data/spaces/bedroom/__smoke_web_roundtrip__.sh3d"
+printf 'OK browser .sh3x -> desktop/MCP .sh3d bridge\n'
+
+curl -fsS --max-time 10 http://127.0.0.1:21029/ >/dev/null
+printf 'OK maintenance Webtop\n'
 
 tailnet_host=""
 if command -v tailscale >/dev/null 2>&1; then
@@ -33,13 +71,13 @@ PY
 
 if [[ -n "$tailnet_host" ]]; then
   serve_status="$(tailscale serve status)"
-  for port in 21020 21021 21022 21023; do
+  for port in 21020 21021 21022 21023 21029; do
     grep -Fq "https://$tailnet_host:$port" <<<"$serve_status" || {
       printf 'Missing Tailscale Serve endpoint for port %s\n' "$port" >&2
       exit 1
     }
   done
-  printf 'OK Tailscale Serve: Webtop + 3 MCP endpoints\n'
+  printf 'OK Tailscale Serve: native editor + Webtop + 3 MCP endpoints\n'
 fi
 
 python3 - <<'PY'
@@ -183,6 +221,7 @@ asyncio.run(main())
 PY
 
 test -f "$repo_root/runtime/data/spaces/bedroom/bedroom.sh3d"
+test -f "$repo_root/runtime/data/spaces/bedroom/bedroom.sh3x"
 test -f "$repo_root/runtime/data/body/avatar.blend"
 printf 'OK source assets present\n'
 

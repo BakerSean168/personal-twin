@@ -45,13 +45,14 @@ The GitHub repository is public.
 
 ## Runtime workbench and MCP
 
-On GCP dev, the V1 workbench owns ports 21020-21023:
+On GCP dev, V1 uses these entry points:
 
-- browser workbench: `http://127.0.0.1:21020`
+- native SweetHome3DJS editor: `http://127.0.0.1:21020`
 - Sweet Home 3D MCP: `http://127.0.0.1:21021/mcp` (Streamable HTTP)
 - Blender MCP: `http://127.0.0.1:21022/sse` (SSE)
 - Personal Twin Memory MCP: `http://127.0.0.1:21023/mcp` (Streamable HTTP)
+- maintenance Webtop: `http://127.0.0.1:21029`
 
-Actual private runtime data lives under `runtime/` and is ignored by Git. Read `runtime/data/canonical/` for factual measurements. Store durable AI notes under `runtime/data/memory/` through Personal Twin Memory MCP; notes never override canonical facts. Use Sweet Home 3D MCP for room/furniture scene operations and Blender MCP for body/avatar or general 3D scene operations.
+Actual private runtime data lives under `runtime/` and is ignored by Git. Read `runtime/data/canonical/` for factual measurements. Store durable AI notes under `runtime/data/memory/` through Personal Twin Memory MCP; notes never override canonical facts. Human room editing should use SweetHome3DJS on port 21020. Before AI room mutations, run `scripts/space-sync-from-web.sh` so the desktop/MCP model reloads the newest web-edited `.sh3x`; after AI saves the desktop model, run `scripts/space-sync-to-web.sh` to refresh the browser-readable `.sh3x`. On service startup, `scripts/space-reconcile.sh` compares both files and converts the newer one to the older format before either editor is started. Use Blender MCP for body/avatar or general 3D scene operations.
 
-Do not replace the native editors with a custom editor unless the user explicitly changes the product direction.
+Do not replace SweetHome3DJS, Sweet Home 3D, MPFB or Blender with custom editors unless the user explicitly changes the product direction.

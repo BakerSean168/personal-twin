@@ -32,3 +32,6 @@ runtime/
 *.blend1
 *.blend2
 *.autosave
+
+# Cached third-party web editor distribution
+deploy/space-web/vendor/*.zip
