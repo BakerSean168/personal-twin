@@ -1,0 +1,15 @@
+apiVersion: pds/v1alpha1
+kind: Component
+metadata:
+  id: personal-twin
+  name: Personal Twin
+spec:
+  type: personal-digital-twin
+  domain: personal-twin
+  lifecycle: active
+  repository:
+    url: https://github.com/BakerSean168/personal-twin.git
+    visibility: public
+  provides:
+    - pds://personal-twin/data/canonical-model
+    - pds://personal-twin/interface/memory-mcp
