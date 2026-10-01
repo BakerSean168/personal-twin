@@ -35,3 +35,6 @@ runtime/
 
 # Cached third-party web editor distribution
 deploy/space-web/vendor/*.zip
+
+# Generated data-product artifacts are reproducible and non-canonical.
+generated/
