@@ -1,0 +1,31 @@
+name: Publish twin-public-v1
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 -m pip install -r requirements-dev.txt
+      - run: python3 scripts/validate_json.py
+      - run: python3 -m unittest -v scripts/test_export_twin_public.py
+      - run: python3 scripts/export_twin_public.py
+      - run: python3 scripts/verify_twin_public.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: twin-public-v1-${{ github.sha }}
+          path: |
+            generated/twin-public-v1.json
+            generated/twin-public-v1.manifest.json
+          if-no-files-found: error
+          retention-days: 90

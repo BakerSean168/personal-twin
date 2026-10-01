@@ -11,5 +11,6 @@ spec:
     url: https://github.com/BakerSean168/personal-twin.git
     visibility: public
   provides:
+    - pds://personal-twin/projection/twin-public-v1
     - pds://personal-twin/data/canonical-model
     - pds://personal-twin/interface/memory-mcp
