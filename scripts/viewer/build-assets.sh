@@ -12,6 +12,7 @@ fi
 standing_script="/tmp/personal-twin-export-standing.py"
 room_script="/tmp/personal-twin-convert-room.py"
 combined_script="/tmp/personal-twin-build-combined.py"
+cutaway_script="/tmp/personal-twin-build-cutaway.py"
 
 docker cp \
   "$repo_root/scripts/viewer/export_standing_blender.py" \
@@ -24,6 +25,10 @@ docker cp \
 docker cp \
   "$repo_root/scripts/integration/build_combined_blender.py" \
   "$container:$combined_script" >/dev/null
+
+docker cp \
+  "$repo_root/scripts/viewer/build_cutaway_blender.py" \
+  "$container:$cutaway_script" >/dev/null
 
 mkdir -p "$repo_root/runtime/data/viewer/assets"
 
@@ -118,6 +123,15 @@ else
   printf 'WARN integrated room/body scene not rebuilt\n' >&2
 fi
 
+if [[ -f "$repo_root/runtime/data/viewer/assets/room.glb" ]]; then
+  docker exec "$container" \
+    /opt/blender/blender \
+    --background \
+    --python "$cutaway_script"
+else
+  printf 'WARN room GLB missing; cutaway assets not rebuilt\n' >&2
+fi
+
 python3 - "$repo_root/runtime/data/viewer/assets" <<'PY'
 import hashlib
 import json
@@ -137,6 +151,9 @@ for name in (
     "room-integration.json",
     "scene-combined.glb",
     "scene-combined.json",
+    "room-cutaway.glb",
+    "scene-combined-cutaway.glb",
+    "cutaway.json",
     "workstation-analysis.json",
 ):
     path = root / name

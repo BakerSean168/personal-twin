@@ -4,14 +4,14 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 const MODES = {
   room: {
-    url: "/assets/room.glb",
+    url: "/assets/room-cutaway.glb",
     kicker: "SPACE TWIN",
     title: "Bedroom",
     summary: "当前 Sweet Home 3D 房间的只读 Web 视图。",
     assumption: "房间 GLB 来自当前 Sweet Home 3D 场景导出；canonical 空间尺寸仍然是事实源。"
   },
   combined: {
-    url: "/assets/scene-combined.glb",
+    url: "/assets/scene-combined-cutaway.glb",
     kicker: "PERSONAL TWIN",
     title: "Integrated Room + Body",
     summary: "真实房间与坐姿 Body Twin 已通过 Sweet Home 3D 锚点统一到同一坐标系。",
@@ -83,6 +83,51 @@ const cache = new Map();
 let currentMode = "room";
 let currentObject = null;
 
+const BODY_MATERIAL = new THREE.MeshBasicMaterial({
+  color: 0xb9c4d8,
+  side: THREE.DoubleSide
+});
+
+function isBodyNode(node) {
+  return Boolean(node?.isMesh && node.name?.startsWith("PersonalTwinAvatar"));
+}
+
+function findBodyNode(root) {
+  let body = null;
+  root.traverse((node) => {
+    if (!body && isBodyNode(node)) body = node;
+  });
+  return body;
+}
+
+function prepareRoot(root) {
+  root.updateMatrixWorld(true);
+  root.traverse((node) => {
+    if (node.isMesh) {
+      node.castShadow = false;
+      node.receiveShadow = false;
+    }
+    if (node.isMesh && !isBodyNode(node) && node.material) {
+      const makeDoubleSided = (material) => {
+        const clone = material.clone();
+        clone.side = THREE.DoubleSide;
+        return clone;
+      };
+      node.material = Array.isArray(node.material)
+        ? node.material.map(makeDoubleSided)
+        : makeDoubleSided(node.material);
+    }
+    if (isBodyNode(node)) {
+      node.frustumCulled = false;
+      if (Array.isArray(node.material)) {
+        node.material = node.material.map(() => BODY_MATERIAL.clone());
+      } else {
+        node.material = BODY_MATERIAL.clone();
+      }
+    }
+  });
+}
+
 function resize() {
   const width = viewport.clientWidth;
   const height = viewport.clientHeight;
@@ -104,40 +149,202 @@ function loadGltf(url) {
   return new Promise((resolve, reject) => {
     loader.load(url, (gltf) => {
       const root = gltf.scene;
-      root.traverse((node) => {
-        if (node.isMesh) {
-          node.castShadow = false;
-          node.receiveShadow = false;
-        }
-      });
+      prepareRoot(root);
       cache.set(url, root);
       resolve(root);
     }, undefined, reject);
   });
 }
 
-function fitCamera(object, mode) {
-  const box = new THREE.Box3().setFromObject(object);
+function preciseBox(object) {
+  object.updateMatrixWorld(true);
+  return new THREE.Box3().setFromObject(object, true);
+}
+
+function setCameraFov(value) {
+  if (camera.fov === value) return;
+  camera.fov = value;
+  camera.updateProjectionMatrix();
+}
+
+function applyCamera(position, target, near, far, minDistance, maxDistance) {
+  camera.position.copy(position);
+  camera.near = near;
+  camera.far = far;
+  camera.updateProjectionMatrix();
+  controls.target.copy(target);
+  controls.minDistance = minDistance;
+  controls.maxDistance = maxDistance;
+  controls.update();
+}
+
+function fitStandingCamera(root) {
+  const body = findBodyNode(root);
+  const box = body ? preciseBox(body) : preciseBox(root);
   if (box.isEmpty()) return;
+
   const size = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
   const maxSize = Math.max(size.x, size.y, size.z);
+
+  setCameraFov(38);
   const fov = THREE.MathUtils.degToRad(camera.fov);
-  let distance = maxSize / (2 * Math.tan(fov / 2));
-  const roomLike = mode === "room" || mode === "combined";
-  distance *= roomLike ? 1.35 : 1.15;
-  const direction = roomLike
-    ? new THREE.Vector3(1.15, 0.9, 1.25)
-    : new THREE.Vector3(1.15, 0.55, 1.65);
-  direction.normalize();
-  camera.position.copy(center).addScaledVector(direction, distance);
-  camera.near = Math.max(distance / 200, 0.01);
-  camera.far = Math.max(distance * 30, 50);
-  camera.updateProjectionMatrix();
-  controls.target.copy(center);
-  controls.minDistance = Math.max(maxSize * 0.08, 0.15);
-  controls.maxDistance = Math.max(maxSize * 8, 10);
-  controls.update();
+  const distance = maxSize / (2 * Math.tan(fov / 2)) * 1.28;
+  const direction = new THREE.Vector3(0.65, 0.28, 1.6).normalize();
+  const position = center.clone().addScaledVector(direction, distance);
+
+  applyCamera(
+    position,
+    center,
+    Math.max(distance / 250, 0.01),
+    Math.max(distance * 30, 30),
+    Math.max(maxSize * 0.08, 0.12),
+    Math.max(maxSize * 8, 8)
+  );
+}
+
+function fitRoomCamera(root, mode) {
+  const roomBox = preciseBox(root);
+  if (roomBox.isEmpty()) return;
+
+  const size = roomBox.getSize(new THREE.Vector3());
+  const center = roomBox.getCenter(new THREE.Vector3());
+
+  if (mode === "combined") {
+    const body = findBodyNode(root);
+    const bodyBox = body ? preciseBox(body) : null;
+    const target = bodyBox && !bodyBox.isEmpty()
+      ? bodyBox.getCenter(new THREE.Vector3())
+      : new THREE.Vector3(center.x, center.y * 0.55, center.z);
+    const bodySize = bodyBox && !bodyBox.isEmpty()
+      ? bodyBox.getSize(new THREE.Vector3())
+      : size;
+    const distance = Math.max(Math.max(bodySize.x, bodySize.y, bodySize.z) * 2.45, 3.0);
+    const direction = new THREE.Vector3(1.15, 0.9, -1.55).normalize();
+
+    setCameraFov(50);
+    applyCamera(
+      target.clone().addScaledVector(direction, distance),
+      target,
+      0.02,
+      60,
+      0.15,
+      22
+    );
+    return;
+  }
+
+  const maxSize = Math.max(size.x, size.y, size.z);
+  setCameraFov(52);
+  const fov = THREE.MathUtils.degToRad(camera.fov);
+  const distance = maxSize / (2 * Math.tan(fov / 2)) * 1.05;
+  const direction = new THREE.Vector3(0.9, 0.88, -1.25).normalize();
+  const target = new THREE.Vector3(center.x, roomBox.min.y + size.y * 0.40, center.z);
+
+  applyCamera(
+    target.clone().addScaledVector(direction, distance),
+    target,
+    Math.max(distance / 300, 0.02),
+    Math.max(distance * 20, 60),
+    0.2,
+    30
+  );
+}
+
+function seatedEnvironmentBox(root) {
+  const box = new THREE.Box3();
+  let found = false;
+
+  root.traverse((node) => {
+    if (!node.isMesh || !node.name?.startsWith("Ergo_") || node.name === "Ergo_Floor") return;
+    const nodeBox = preciseBox(node);
+    if (nodeBox.isEmpty()) return;
+    box.union(nodeBox);
+    found = true;
+  });
+
+  return found ? box : preciseBox(root);
+}
+
+function fitSeatedEnvironmentCamera(root) {
+  const box = seatedEnvironmentBox(root);
+  if (box.isEmpty()) return;
+
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const maxSize = Math.max(size.x, size.y, size.z);
+
+  setCameraFov(48);
+  const fov = THREE.MathUtils.degToRad(camera.fov);
+  const distance = maxSize / (2 * Math.tan(fov / 2)) * 1.35;
+  const direction = new THREE.Vector3(1.75, 0.78, 1.18).normalize();
+  const target = center.clone();
+  target.y += size.y * 0.04;
+
+  applyCamera(
+    target.clone().addScaledVector(direction, distance),
+    target,
+    Math.max(distance / 250, 0.02),
+    Math.max(distance * 25, 35),
+    0.12,
+    14
+  );
+}
+
+function resetModeCamera(object, mode) {
+  if (mode === "room" || mode === "combined") {
+    fitRoomCamera(object, mode);
+  } else if (mode === "seated") {
+    fitSeatedEnvironmentCamera(object);
+  } else {
+    fitStandingCamera(object);
+  }
+}
+
+const renderProbeEnabled =
+  new URLSearchParams(window.location.search).get("renderProbe") === "1";
+
+function scheduleRenderProbe(mode) {
+  if (!renderProbeEnabled) return;
+
+  viewport.dataset.renderProbe = "pending";
+  viewport.dataset.renderMode = mode;
+
+  requestAnimationFrame(() => {
+    if (currentMode !== mode) return;
+
+    renderer.render(scene, camera);
+    const gl = renderer.getContext();
+    const width = renderer.domElement.width;
+    const height = renderer.domElement.height;
+    const pixels = new Uint8Array(width * height * 4);
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+    let nonBackground = 0;
+    for (let index = 0; index < pixels.length; index += 4) {
+      const r = pixels[index];
+      const g = pixels[index + 1];
+      const b = pixels[index + 2];
+      if (Math.abs(r - 13) > 6 || Math.abs(g - 15) > 6 || Math.abs(b - 19) > 6) {
+        nonBackground += 1;
+      }
+    }
+
+    const thresholds = {
+      room: { pixels: 20000, triangles: 4000 },
+      combined: { pixels: 30000, triangles: 30000 },
+      standing: { pixels: 8000, triangles: 20000 },
+      seated: { pixels: 15000, triangles: 30000 }
+    };
+    const threshold = thresholds[mode] || { pixels: 5000, triangles: 1000 };
+    const ok =
+      nonBackground >= threshold.pixels &&
+      renderer.info.render.triangles >= threshold.triangles;
+
+    viewport.dataset.renderProbe = ok ? "ok" : "empty";
+    viewport.dataset.renderPixels = String(nonBackground);
+    viewport.dataset.renderTriangles = String(renderer.info.render.triangles);
+  });
 }
 
 function metric(label, value) {
@@ -279,15 +486,11 @@ async function combinedMetrics() {
   return items;
 }
 
-async function updateMetrics(mode) {
-  try {
-    if (mode === "room") showMetrics(await roomMetrics());
-    else if (mode === "combined") showMetrics(await combinedMetrics());
-    else if (mode === "seated") showMetrics(await seatedMetrics());
-    else showMetrics(await standingMetrics());
-  } catch {
-    showMetrics([["状态", "指标读取失败"]]);
-  }
+async function metricsForMode(mode) {
+  if (mode === "room") return roomMetrics();
+  if (mode === "combined") return combinedMetrics();
+  if (mode === "seated") return seatedMetrics();
+  return standingMetrics();
 }
 
 async function setMode(mode, options) {
@@ -312,11 +515,15 @@ async function setMode(mode, options) {
     if (currentObject && currentObject.parent === scene) scene.remove(currentObject);
     currentObject = object;
     scene.add(object);
-    if (reset) fitCamera(object, mode);
-    await updateMetrics(mode);
+    if (reset) resetModeCamera(object, mode);
+    scheduleRenderProbe(mode);
+    const modeMetrics = await metricsForMode(mode);
+    if (currentMode !== mode) return;
+    showMetrics(modeMetrics);
     setLoading("", false);
   } catch (error) {
     console.error(error);
+    if (currentMode !== mode) return;
     setLoading("加载失败：" + config.url, true);
     showMetrics([["状态", "资产不可用"]]);
   }
@@ -351,7 +558,7 @@ modeButtons.forEach((button) => {
   button.addEventListener("click", () => setMode(button.dataset.mode));
 });
 resetButton.addEventListener("click", () => {
-  if (currentObject) fitCamera(currentObject, currentMode);
+  if (currentObject) resetModeCamera(currentObject, currentMode);
 });
 window.addEventListener("keydown", (event) => {
   if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
@@ -359,7 +566,9 @@ window.addEventListener("keydown", (event) => {
   if (event.key === "2") setMode("combined");
   if (event.key === "3") setMode("standing");
   if (event.key === "4") setMode("seated");
-  if (event.key.toLowerCase() === "r" && currentObject) fitCamera(currentObject, currentMode);
+  if (event.key.toLowerCase() === "r" && currentObject) {
+    resetModeCamera(currentObject, currentMode);
+  }
 });
 
 renderer.setAnimationLoop(() => {
