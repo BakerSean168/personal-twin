@@ -79,9 +79,9 @@ SEAT_VERTEX_IDS = [4455, 11073]
 CROWN_VERTEX_IDS = [881]
 
 TOLERANCES_MM = {
+    "height_mm": 5.0,
     "chestCircumference_mm": 5.0,
     "inseam_mm": 10.0,
-    "sittingHeight_mm": 8.0,
 }
 
 obj = bpy.data.objects.get(OBJECT_NAME)
@@ -275,6 +275,11 @@ def _chest_measurement(coords):
     }
 
 
+def _visible_body_height(coords):
+    points = [coords[index] for index in BODY_IDS]
+    return (max(point.z for point in points) - min(point.z for point in points)) * 1000
+
+
 def _foot_length(coords, side):
     points = [
         coords[index]
@@ -302,7 +307,7 @@ def _measure():
     left_elbow = _group_centroid(coords, "joint-l-elbow")
     left_hand = _group_centroid(coords, "joint-l-hand")
 
-    height = (max(point.z for point in coords) - min(point.z for point in coords)) * 1000
+    height = _visible_body_height(coords)
     shoulder = (left_shoulder - right_shoulder).length * 1000
     arm = ((left_shoulder - left_elbow).length + (left_elbow - left_hand).length) * 1000
 
@@ -351,6 +356,25 @@ def _remove_target(name):
     key = obj.data.shape_keys.key_blocks.get(name)
     if key is not None:
         obj.shape_key_remove(key)
+
+
+def _fit_height(target_mm):
+    baseline = _visible_body_height(_final_coords())
+    if baseline <= 0:
+        raise RuntimeError("visible body height is invalid")
+
+    factor = target_mm / baseline
+    obj.scale.z *= factor
+    bpy.context.view_layer.update()
+
+    fitted = _visible_body_height(_final_coords())
+    return {
+        "axis": "z",
+        "factor": factor,
+        "baseline_mm": baseline,
+        "fitted_mm": fitted,
+        "objectScaleZ": float(obj.scale.z),
+    }
 
 
 def _fit_chest(target_mm):
@@ -403,9 +427,9 @@ def _fit_chest(target_mm):
 def _validation(report):
     measured = report["measurements"]
     mapping = {
+        "height_mm": "height_mm",
         "chestCircumference_mm": "chestCircumference_mm",
         "inseam_mm": "inseam_mm",
-        "sittingHeight_mm": "sittingHeight_mm",
     }
 
     checks = {}
@@ -434,10 +458,17 @@ def _validation(report):
 
 fit_result = None
 if ACTION == "fit":
+    height_target = CANONICAL.get("height_mm")
     chest_target = CANONICAL.get("chestCircumference_mm")
+    if height_target is None:
+        raise RuntimeError("canonical height is required for fit")
     if chest_target is None:
         raise RuntimeError("canonical chestCircumference is required for fit")
-    fit_result = {"chest": _fit_chest(float(chest_target))}
+
+    fit_result = {
+        "height": _fit_height(float(height_target)),
+        "chest": _fit_chest(float(chest_target)),
+    }
 
 report = _measure()
 validation = _validation(report)
@@ -453,7 +484,7 @@ landmark_report = {
     "measurementDefinitions": {
         "chestCircumference": "Closed main torso mesh intersection loop at nippleTip/nipple centroid Z; arm loops are excluded.",
         "inseam": "Vertical distance from joint-ground centroid to the fixed crotch topology landmark.",
-        "sittingHeight": "Vertical distance from the bilateral seat-support topology landmark to the crown topology landmark.",
+        "sittingHeight": "Neutral-pose structural proxy from the bilateral seat-support topology landmark to the crown. Canonical sitting height is enforced by the seated ergonomics pose, not by neutral-body validation.",
     },
 }
 
@@ -472,7 +503,7 @@ if ACTION == "fit":
     except FileNotFoundError:
         pass
 
-    existing["measurementInfrastructureVersion"] = "body-landmarks-v1"
+    existing["measurementInfrastructureVersion"] = "body-visible-height-v2"
     existing["measurementValidation"] = validation
     existing.setdefault("directlyFitted", [])
     if "chestCircumference" not in existing["directlyFitted"]:
@@ -481,9 +512,11 @@ if ACTION == "fit":
         existing["constraintOnly"] = [
             name for name in existing["constraintOnly"] if name != "chestCircumference"
         ]
-    existing["validatedConstraints"] = ["inseam", "sittingHeight"]
+    existing["validatedConstraints"] = ["inseam"]
+    existing["heightFit"] = fit_result["height"]
     existing["chestFit"] = fit_result["chest"]
     existing.setdefault("measuredAfterFit", {})
+    existing["measuredAfterFit"]["height_mm"] = report["measurements"]["height_mm"]
     existing["measuredAfterFit"]["chestCircumference_mm"] = report["measurements"]["chestCircumference_mm"]
     existing["measuredAfterFit"]["inseam_mm"] = report["measurements"]["inseam_mm"]
     existing["measuredAfterFit"]["sittingHeight_mm"] = report["measurements"]["sittingHeight_mm"]

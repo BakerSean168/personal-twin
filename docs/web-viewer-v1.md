@@ -77,4 +77,4 @@ The Viewer binds only to 127.0.0.1:21024 on the host. Tailscale Serve provides t
 
 V1 switches between three independent derived views. It does not yet place the seated avatar into the full Sweet Home 3D room coordinate system. That requires a formal room-to-ergonomics transform so the combined scene remains measurement-driven rather than visually guessed.
 
-The standing inspector intentionally reports both canonical height and the exported mesh height, plus their drift. Canonical body facts remain authoritative when the current fitted geometry and canonical measurements are not yet reconciled. The Viewer must expose that mismatch rather than silently presenting the mesh as an exact measurement model.
+The standing inspector reports canonical height, exported visible-mesh height and their drift. The current height-normalized Body V2 is expected to keep this drift near zero. The metric remains visible so a future fitting regression is exposed immediately instead of being hidden by stale metadata.
