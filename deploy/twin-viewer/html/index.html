@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Personal Twin Viewer</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "/vendor/three/build/three.module.js",
+      "three/addons/": "/vendor/three/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">PT</div>
+        <div>
+          <strong>Personal Twin</strong>
+          <span>Private 3D Viewer</span>
+        </div>
+      </div>
+      <nav class="mode-switcher" aria-label="Viewer mode">
+        <button class="mode-button is-active" data-mode="room">房间</button>
+        <button class="mode-button" data-mode="standing">站立人体</button>
+        <button class="mode-button" data-mode="seated">坐姿工学</button>
+      </nav>
+      <button id="reset-view" class="secondary-button" type="button">重置视角</button>
+    </header>
+    <main class="workspace">
+      <section class="viewport-card">
+        <div id="viewport" class="viewport" aria-label="3D viewer"></div>
+        <div id="loading" class="loading-pill">正在加载房间…</div>
+        <div class="viewport-hint">左键旋转 · 滚轮缩放 · 右键平移</div>
+      </section>
+      <aside class="inspector">
+        <div>
+          <p class="eyebrow" id="mode-kicker">SPACE TWIN</p>
+          <h1 id="mode-title">Bedroom</h1>
+          <p class="summary" id="mode-summary">当前 Sweet Home 3D 房间的只读 Web 视图。</p>
+        </div>
+        <div class="metric-grid" id="metrics"></div>
+        <section class="status-panel">
+          <div class="section-heading">
+            <h2>资产状态</h2>
+            <span id="asset-count">—</span>
+          </div>
+          <div id="asset-status" class="asset-list"></div>
+        </section>
+        <section class="status-panel">
+          <div class="section-heading"><h2>模型说明</h2></div>
+          <p id="assumption" class="note">3D 是 canonical measurements 的派生视图，不作为事实源。</p>
+        </section>
+      </aside>
+    </main>
+  </div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

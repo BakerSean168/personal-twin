@@ -1,0 +1,12 @@
+services:
+  viewer:
+    build:
+      context: ../..
+      dockerfile: deploy/twin-viewer/Dockerfile
+    image: personal-twin-viewer:local
+    container_name: personal-twin-viewer
+    restart: unless-stopped
+    volumes:
+      - ../../runtime/data/viewer/assets:/usr/share/nginx/html/assets:ro
+    ports:
+      - "127.0.0.1:21024:8080"

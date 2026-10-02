@@ -15,9 +15,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - run: python -m pip install -r requirements-dev.txt
       - run: python scripts/validate_json.py
       - run: python -m py_compile scripts/body/body_model.py
       - run: bash -n scripts/body/body-model.sh
       - run: python -m py_compile scripts/ergonomics/seated_blender.py scripts/ergonomics/validate_setup.py
       - run: bash -n scripts/ergonomics/seated-scene.sh
+      - run: python -m py_compile scripts/viewer/export_standing_blender.py scripts/viewer/convert_room_blender.py
+      - run: bash -n scripts/viewer/build-assets.sh scripts/viewer/browser-smoke.sh
+      - run: node --input-type=module --check < deploy/twin-viewer/html/app.js

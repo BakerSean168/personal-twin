@@ -41,6 +41,41 @@ rm -f \
   "$repo_root/runtime/data/spaces/bedroom/__smoke_web_roundtrip__.sh3d"
 printf 'OK browser .sh3x -> desktop/MCP .sh3d bridge\n'
 
+for attempt in $(seq 1 20); do
+  if curl -fsS --max-time 2 http://127.0.0.1:21024/healthz >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.5
+done
+viewer_page="$(curl -fsS --max-time 10 http://127.0.0.1:21024/)"
+grep -Fq "Personal Twin Viewer" <<<"$viewer_page"
+viewer_app="$(curl -fsS --max-time 10 http://127.0.0.1:21024/app.js)"
+grep -Fq "GLTFLoader" <<<"$viewer_app"
+python3 - "$repo_root/runtime/data/viewer/assets/manifest.json" <<'PYVIEWER'
+import json
+import sys
+from pathlib import Path
+
+manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+required = {
+    "room.glb",
+    "room.json",
+    "avatar-standing.glb",
+    "avatar-standing.json",
+    "avatar-seated.glb",
+    "seated-v1-report.json",
+    "body-summary.json",
+}
+assets = set(manifest.get("assets", {}))
+missing = required - assets
+assert not missing, missing
+for name in required:
+    path = Path(sys.argv[1]).parent / name
+    assert path.is_file() and path.stat().st_size > 0, path
+print(f"OK Twin Viewer: {len(required)} required assets")
+PYVIEWER
+"$repo_root/scripts/viewer/browser-smoke.sh"
+
 curl -fsS --max-time 10 http://127.0.0.1:21029/ >/dev/null
 printf 'OK maintenance Webtop\n'
 
@@ -71,13 +106,13 @@ PY
 
 if [[ -n "$tailnet_host" ]]; then
   serve_status="$(tailscale serve status)"
-  for port in 21020 21021 21022 21023 21029; do
+  for port in 21020 21021 21022 21023 21024 21029; do
     grep -Fq "https://$tailnet_host:$port" <<<"$serve_status" || {
       printf 'Missing Tailscale Serve endpoint for port %s\n' "$port" >&2
       exit 1
     }
   done
-  printf 'OK Tailscale Serve: native editor + Webtop + 3 MCP endpoints\n'
+  printf 'OK Tailscale Serve: native editor + Twin Viewer + Webtop + 3 MCP endpoints\n'
 fi
 
 python3 - <<'PY'
@@ -223,6 +258,9 @@ PY
 test -f "$repo_root/runtime/data/spaces/bedroom/bedroom.sh3d"
 test -f "$repo_root/runtime/data/spaces/bedroom/bedroom.sh3x"
 test -f "$repo_root/runtime/data/body/avatar.blend"
+test -f "$repo_root/runtime/data/viewer/assets/room.glb"
+test -f "$repo_root/runtime/data/viewer/assets/avatar-standing.glb"
+test -f "$repo_root/runtime/data/viewer/assets/avatar-seated.glb"
 printf 'OK source assets present\n'
 
 python3 "$repo_root/scripts/memory-smoke.py"
