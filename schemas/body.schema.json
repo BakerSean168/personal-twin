@@ -20,6 +20,7 @@
         "waistCircumference": { "$ref": "#/$defs/lengthMeasurement" },
         "hipCircumference": { "$ref": "#/$defs/lengthMeasurement" },
         "torsoLength": { "$ref": "#/$defs/lengthMeasurement" },
+        "sittingHeight": { "$ref": "#/$defs/lengthMeasurement" },
         "armLength": { "$ref": "#/$defs/lengthMeasurement" },
         "inseam": { "$ref": "#/$defs/lengthMeasurement" },
         "outseam": { "$ref": "#/$defs/lengthMeasurement" },
