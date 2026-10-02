@@ -25,8 +25,8 @@ PROFILE_PATH = "/data/canonical/body/profile.json"
 SETUP_PATH = "/data/canonical/ergonomics/desk-setup.json"
 
 POSE_VERSION = "seated-v1"
-HIP_DEG = -67.0
-KNEE_DEG = 67.0
+HIP_DEG = -72.0
+KNEE_DEG = 72.0
 FOOT_FLOOR_TOL_MM = 10.0
 CROWN_TOL_MM = 5.0
 WRIST_TOL_MM = 5.0
@@ -195,8 +195,8 @@ def _create_pose():
     for modifier in masks:
         modifier.show_viewport = False
 
-    # Symmetric sagittal-plane lower-body pose. With the fitted 172 cm avatar,
-    # -67/+67 locks the measured sitting height while placing the feet on the floor.
+    # Symmetric sagittal-plane lower-body pose for the current height-normalized avatar.
+    # -72/+72 locks canonical sitting height while keeping the height-normalized feet on the floor.
     for side in ("L", "R"):
         hip = rig.pose.bones[f"upperleg01.{side}"]
         knee = rig.pose.bones[f"lowerleg01.{side}"]

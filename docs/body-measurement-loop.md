@@ -15,8 +15,8 @@ With the workbench running:
 measure is read-only with respect to the Blender model. It writes private runtime reports to
 runtime/data/body/body-measurements.json and runtime/data/body/landmarks.json.
 
-fit currently fits chest circumference through the MPFB bust-circumference target, updates the
-runtime reports and avatar-fit.json, and saves avatar.blend.
+fit normalizes visible body height along world Z, fits chest circumference through the MPFB
+bust-circumference target, updates the runtime reports and avatar-fit.json, and saves avatar.blend.
 
 validate is read-only with respect to the Blender model and exits non-zero when a supported
 canonical measurement is outside its tolerance.
@@ -38,6 +38,16 @@ The V1 landmark contract targets the MPFB hm08 base topology.
 The implementation verifies symmetry and anatomical placement before using fixed-topology
 landmarks. A future incompatible MPFB topology must therefore fail rather than silently produce a
 different measurement.
+
+## Standing height
+
+Standing height is measured from the visible MPFB body vertex group, not from all hm08 vertices.
+The full base mesh also contains JointCubes and HelperGeometry whose extrema are not visible body
+surface and previously inflated the height result.
+
+The fit step normalizes only the avatar's Z scale to the canonical standing height. This preserves
+horizontal dimensions such as chest, shoulder breadth and foot length while avoiding a second
+multi-parameter solver.
 
 ## Chest circumference
 
@@ -71,18 +81,18 @@ V1 uses a structural neutral-pose proxy:
 
     crown Z - seat-support landmark Z
 
-The seat-support pair is on the bilateral inferior/posterior buttock surface. This is a body
-proportion metric. A future seated-pose ergonomics layer may add a compressed seat-contact
-measurement, but it should remain a separate metric rather than changing this definition.
+The seat-support pair is on the bilateral inferior/posterior buttock surface. This neutral-pose
+value is retained as a structural proxy only. Canonical sitting height is enforced in the seated
+ergonomics pose, where the stool top plus measured sitting height defines the crown target. It is
+therefore not part of neutral-body validation.
 
-## Current V1 fitting policy
+## Current V2 fitting policy
 
-Chest circumference is directly fitted.
+Visible standing height and chest circumference are directly fitted.
 
-Inseam and sitting height now have stable landmarks and are validated against canonical values.
-They are not actively fitted yet because V1 does not have a calibrated proof that the relevant
-MPFB leg/torso targets change only those dimensions without degrading already accepted
-measurements.
+Inseam is measured from stable landmarks and validated within tolerance. Sitting height remains a
+canonical fact, but its operational validation belongs to the seated ergonomics layer instead of
+the neutral standing mesh.
 
 Canonical measurements remain the source of truth even when a mesh measurement is within
 tolerance.

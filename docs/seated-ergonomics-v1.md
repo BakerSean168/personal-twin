@@ -50,8 +50,8 @@ V1 uses:
 - symmetric wrist IK targets derived from the keyboard envelope;
 - neutral upright torso.
 
-The current fitted avatar resolves the lower body at approximately 67 degrees hip flexion preset
-plus the corresponding 67 degree knee counter-rotation. These are implementation pose parameters,
+The current fitted avatar resolves the lower body at approximately 72 degrees hip flexion preset
+plus the corresponding 72 degree knee counter-rotation. These are implementation pose parameters,
 not claimed clinical joint-angle measurements.
 
 ## Validation
