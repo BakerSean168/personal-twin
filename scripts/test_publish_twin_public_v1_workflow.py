@@ -17,6 +17,10 @@ class TwinPublicV1WorkflowTests(unittest.TestCase):
         self.assertNotIn("push:", self.workflow)
         self.assertNotIn("pull_request:", self.workflow)
 
+    def test_validation_avoids_duplicate_feature_branch_runs(self) -> None:
+        self.assertIn("push:\n    branches: [main]", self.validate)
+        self.assertIn("pull_request:\n    branches: [main]", self.validate)
+
     def test_main_validation_still_proves_public_boundary(self) -> None:
         for expected in (
             "scripts/test_export_twin_public.py",
