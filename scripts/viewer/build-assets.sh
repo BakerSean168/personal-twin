@@ -53,6 +53,13 @@ if [[ -f "$repo_root/runtime/data/ergonomics/seated-v1-report.json" ]]; then
     "$repo_root/runtime/data/viewer/assets/seated-v1-report.json"
 fi
 
+if [[ -f "$repo_root/runtime/data/ergonomics/seated-v1-report.json" \
+   && -f "$repo_root/runtime/data/canonical/ergonomics/desk-setup.json" ]]; then
+  python3 "$repo_root/scripts/analysis/workstation_ergonomics.py" >/dev/null
+else
+  printf 'WARN workstation ergonomics inputs missing; analysis not rebuilt\n' >&2
+fi
+
 python3 - \
   "$repo_root/runtime/data/canonical/body/profile.json" \
   "$repo_root/runtime/data/viewer/assets/body-summary.json" <<'PYBODY'
@@ -130,6 +137,7 @@ for name in (
     "room-integration.json",
     "scene-combined.glb",
     "scene-combined.json",
+    "workstation-analysis.json",
 ):
     path = root / name
     if not path.is_file():

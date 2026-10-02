@@ -74,3 +74,21 @@ body solely to force visual contact and thereby corrupting the measured sitting-
 This layer is for spatial and ergonomic reasoning. It is not a medical or biomechanical diagnosis,
 and its current simplified desk/stool/monitor meshes are measurement envelopes rather than
 photorealistic furniture models.
+
+## Derived workstation analysis
+
+`scripts/analysis/workstation_ergonomics.py` consumes the seated report and the private desk setup and writes a derived `workstation-analysis.json` for the Viewer. It does not modify canonical measurements or furniture placement.
+
+The external reference checks use public workstation guidance from OSHA and CCOHS for monitor placement. The current reference bands are:
+
+- eye-to-screen viewing distance: 500-1000 mm;
+- monitor top at or below eye level;
+- monitor center approximately 15-20 degrees below horizontal eye level;
+- monitor lateral angle no farther than 35 degrees from straight ahead.
+
+Keyboard/wrist alignment, foot-floor gap and mouse-to-keyboard spacing use project heuristics only. They are marked separately in the report and are not represented as external standards. In particular, mouse placement in the V1 room model is approximate, so a mouse-reach finding is a prompt for confirmation rather than an automatic furniture change.
+
+References:
+
+- OSHA Computer Workstations - Monitors: https://www.osha.gov/etools/computer-workstations/components/monitors
+- CCOHS Office Ergonomics - Positioning the Monitor: https://www.ccohs.ca/oshanswers/ergonomics/office/monitor_positioning.html

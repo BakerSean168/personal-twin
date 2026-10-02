@@ -38,6 +38,7 @@ The expected generated assets are:
     room-integration.json
     scene-combined.glb
     scene-combined.json
+    workstation-analysis.json
     manifest.json
 
 The room source snapshot is an OBJ export of the current Sweet Home 3D scene. build-assets.sh converts Sweet Home 3D centimeters to meters, centers the plan footprint, and places the floor at zero before GLB export.
@@ -56,6 +57,7 @@ The command:
 - derives a minimal private body-summary.json from canonical body facts for the inspector UI;
 - validates the private Sweet Home 3D stool/desk anchors against the ergonomics setup;
 - builds a formal ergonomics-to-room transform and a combined room + seated-body GLB;
+- derives a workstation ergonomics analysis from the seated report plus private desk setup;
 - emits manifest.json with SHA-256 and size metadata.
 
 If the private room OBJ source is missing, the command leaves any existing room GLB untouched and warns rather than failing body asset generation.

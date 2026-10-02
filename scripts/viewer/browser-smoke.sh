@@ -14,7 +14,7 @@ declare -A expected_title=(
 
 declare -A expected_metric=(
   [room]="房间外包络"
-  [combined]="坐标锚点"
+  [combined]="显示器距离"
   [standing]="几何高度差"
   [seated]="视距"
 )
