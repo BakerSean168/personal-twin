@@ -63,3 +63,14 @@ The first body asset is a generic MPFB base human at `runtime/data/body/avatar.b
 Use canonical JSON for factual measurements. Use Personal Twin Memory MCP for durable AI notes and canonical reads. Use Sweet Home 3D MCP for room/furniture scene operations. Use Blender MCP for body/avatar and general 3D scene operations. Do not infer canonical body measurements from a mesh when explicit measurements exist.
 
 The editor bridge paths are intentionally independent: Sweet Home 3D runs its plugin on container loopback `9877` and is forwarded to host `21021`; Blender MCP runs as a stdio server behind an HTTP/SSE proxy on container `9878` and host `21022`. This keeps editor-specific transports isolated from the durable memory service on `21023`.
+
+## Body measurement loop
+
+The body avatar can be measured, fitted and validated against private canonical body measurements
+without manual Blender UI work:
+
+    scripts/body/body-model.sh measure
+    scripts/body/body-model.sh fit
+    scripts/body/body-model.sh validate
+
+See docs/body-measurement-loop.md for the MPFB hm08 landmark contract and fitting semantics.
