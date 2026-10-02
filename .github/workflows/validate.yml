@@ -19,3 +19,5 @@ jobs:
       - run: python scripts/validate_json.py
       - run: python -m py_compile scripts/body/body_model.py
       - run: bash -n scripts/body/body-model.sh
+      - run: python -m py_compile scripts/ergonomics/seated_blender.py scripts/ergonomics/validate_setup.py
+      - run: bash -n scripts/ergonomics/seated-scene.sh

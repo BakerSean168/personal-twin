@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.example.invalid/personal-twin/ergonomics.schema.json",
+  "title": "Personal Twin Ergonomic Desk Setup",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "setupId", "updatedAt", "coordinateSystem", "objects", "postureIntent"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "setupId": {"type": "string", "minLength": 1},
+    "updatedAt": {"type": "string", "format": "date"},
+    "coordinateSystem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["origin", "xAxis", "yAxis", "zAxis", "lengthUnit"],
+      "properties": {
+        "origin": {"const": "stool_center_floor"},
+        "xAxis": {"const": "right"},
+        "yAxis": {"const": "desk_direction_negative_y"},
+        "zAxis": {"const": "up"},
+        "lengthUnit": {"const": "mm"}
+      }
+    },
+    "source": {"type": "object"},
+    "objects": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/object"}
+    },
+    "postureIntent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["facing", "hands", "feet", "torso"],
+      "properties": {
+        "facing": {"const": "negative_y"},
+        "hands": {"enum": ["keyboard", "neutral"]},
+        "feet": {"enum": ["floor", "neutral"]},
+        "torso": {"enum": ["upright", "relaxed"]}
+      }
+    }
+  },
+  "$defs": {
+    "object": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["center", "width", "depth", "height"],
+      "properties": {
+        "center": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y"],
+          "properties": {
+            "x": {"type": "number"},
+            "y": {"type": "number"}
+          }
+        },
+        "width": {"type": "number", "exclusiveMinimum": 0},
+        "depth": {"type": "number", "exclusiveMinimum": 0},
+        "height": {"type": "number", "exclusiveMinimum": 0},
+        "bottomZ": {"type": "number"}
+      }
+    }
+  }
+}

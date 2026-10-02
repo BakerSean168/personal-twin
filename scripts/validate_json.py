@@ -12,6 +12,7 @@ CASES = [
     ("schemas/body.schema.json", "examples/body.example.json"),
     ("schemas/space.schema.json", "examples/space.example.json"),
     ("schemas/furniture.schema.json", "examples/furniture.example.json"),
+    ("schemas/ergonomics.schema.json", "examples/ergonomics.example.json"),
 ]
 
 
