@@ -68,6 +68,7 @@ required = {
     "room-integration.json",
     "scene-combined.glb",
     "scene-combined.json",
+    "workstation-analysis.json",
 }
 assets = set(manifest.get("assets", {}))
 missing = required - assets
@@ -80,8 +81,15 @@ for name in required:
 integration = json.loads((root / "room-integration.json").read_text(encoding="utf-8"))
 combined = json.loads((root / "scene-combined.json").read_text(encoding="utf-8"))
 seated = json.loads((root / "seated-v1-report.json").read_text(encoding="utf-8"))
+analysis = json.loads((root / "workstation-analysis.json").read_text(encoding="utf-8"))
 
 assert integration["validation"]["ok"] is True
+assert analysis["kind"] == "workstation-ergonomics-analysis"
+assert analysis["summary"]["priorityFindingCount"] >= 0
+assert analysis["checks"]["monitorViewingDistance"]["status"] in {"ok", "review"}
+assert analysis["checks"]["monitorCenterDownAngle"]["status"] in {"ok", "review"}
+assert analysis["checks"]["monitorTopRelativeToEye"]["status"] in {"ok", "review"}
+assert len(analysis["references"]) >= 2
 residuals = [
     *integration["validation"]["deskLocalResidual_mm"],
     *integration["validation"]["deskRoomResidual_mm"],

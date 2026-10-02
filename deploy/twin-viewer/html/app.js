@@ -223,28 +223,60 @@ async function standingMetrics() {
 }
 
 async function combinedMetrics() {
-  const [integrationResponse, sceneResponse] = await Promise.all([
+  const [integrationResponse, sceneResponse, analysisResponse] = await Promise.all([
     fetch("/assets/room-integration.json", { cache: "no-store" }),
-    fetch("/assets/scene-combined.json", { cache: "no-store" })
+    fetch("/assets/scene-combined.json", { cache: "no-store" }),
+    fetch("/assets/workstation-analysis.json", { cache: "no-store" })
   ]);
   if (!integrationResponse.ok || !sceneResponse.ok) return [];
 
   const integration = await integrationResponse.json();
   const combined = await sceneResponse.json();
-  const localResidual = integration.validation?.deskLocalResidual_mm || [];
-  const roomResidual = integration.validation?.deskRoomResidual_mm || [];
-  const residuals = [...localResidual, ...roomResidual].map((value) => Math.abs(Number(value)));
-  const maxResidual = residuals.length ? Math.max(...residuals) : NaN;
+  const analysis = analysisResponse.ok ? await analysisResponse.json() : null;
   const bounds = combined.bodyBounds_m || {};
   const min = bounds.min || [];
-  const max = bounds.max || [];
-
-  return [
-    ["坐标锚点", integration.validation?.ok ? "validated" : "check"],
-    ["最大锚点误差", Number.isFinite(maxResidual) ? maxResidual.toFixed(3) + " mm" : "—"],
-    ["人体脚底", min.length >= 3 ? (min[2] * 1000).toFixed(1) + " mm" : "—"],
-    ["人体头顶", max.length >= 3 ? Math.round(max[2] * 1000) + " mm" : "—"]
+  const items = [
+    ["坐标锚点", integration.validation?.ok ? "validated" : "check"]
   ];
+
+  if (analysis) {
+    const distance = analysis.checks?.monitorViewingDistance;
+    if (distance) {
+      items.push([
+        "显示器距离",
+        Math.round(distance.value) + " mm · " + (distance.status === "ok" ? "OK" : "REVIEW")
+      ]);
+    }
+
+    const monitorFinding = (analysis.findings || []).find((item) => item.id === "monitor-height");
+    if (monitorFinding?.suggestedAdjustment?.amount_mm > 0) {
+      items.push([
+        "显示器高度",
+        "建议下移 ≈" + Math.round(monitorFinding.suggestedAdjustment.amount_mm) + " mm"
+      ]);
+    } else {
+      items.push(["显示器高度", "reference OK"]);
+    }
+
+    const mouseGap = analysis.checks?.mouseKeyboardEdgeGap;
+    if (mouseGap) {
+      items.push([
+        "鼠标布局",
+        Math.round(mouseGap.value) + " mm · " + (mouseGap.status === "ok" ? "OK" : "待确认")
+      ]);
+    }
+
+    const knee = analysis.derived?.leftKneeClearanceProxy_mm;
+    if (Number.isFinite(knee)) {
+      items.push(["膝部余量", Math.round(knee) + " mm"]);
+    }
+  }
+
+  items.push([
+    "人体脚底",
+    min.length >= 3 ? (min[2] * 1000).toFixed(1) + " mm" : "—"
+  ]);
+  return items;
 }
 
 async function updateMetrics(mode) {
