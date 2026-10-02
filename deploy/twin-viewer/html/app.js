@@ -10,6 +10,13 @@ const MODES = {
     summary: "当前 Sweet Home 3D 房间的只读 Web 视图。",
     assumption: "房间 GLB 来自当前 Sweet Home 3D 场景导出；canonical 空间尺寸仍然是事实源。"
   },
+  combined: {
+    url: "/assets/scene-combined.glb",
+    kicker: "PERSONAL TWIN",
+    title: "Integrated Room + Body",
+    summary: "真实房间与坐姿 Body Twin 已通过 Sweet Home 3D 锚点统一到同一坐标系。",
+    assumption: "组合场景使用已验证的 room ↔ ergonomics transform；房间、人体和测量事实仍由各自 canonical/source 数据维护。"
+  },
   standing: {
     url: "/assets/avatar-standing.glb",
     kicker: "BODY TWIN",
@@ -117,8 +124,9 @@ function fitCamera(object, mode) {
   const maxSize = Math.max(size.x, size.y, size.z);
   const fov = THREE.MathUtils.degToRad(camera.fov);
   let distance = maxSize / (2 * Math.tan(fov / 2));
-  distance *= mode === "room" ? 1.35 : 1.15;
-  const direction = mode === "room"
+  const roomLike = mode === "room" || mode === "combined";
+  distance *= roomLike ? 1.35 : 1.15;
+  const direction = roomLike
     ? new THREE.Vector3(1.15, 0.9, 1.25)
     : new THREE.Vector3(1.15, 0.55, 1.65);
   direction.normalize();
@@ -181,7 +189,7 @@ async function standingMetrics() {
     fetch("/assets/body-summary.json", { cache: "no-store" }),
     fetch("/assets/avatar-standing.json", { cache: "no-store" })
   ]);
-  if (!bodyResponse.ok) return [["模型", "MPFB fitted V1"]];
+  if (!bodyResponse.ok) return [["模型", "MPFB fitted V2"]];
 
   const data = await bodyResponse.json();
   const mesh = meshResponse.ok ? await meshResponse.json() : null;
@@ -210,13 +218,39 @@ async function standingMetrics() {
     }
   }
 
-  items.push(["模型", "MPFB fitted V1"]);
+  items.push(["模型", "MPFB fitted V2"]);
   return items;
+}
+
+async function combinedMetrics() {
+  const [integrationResponse, sceneResponse] = await Promise.all([
+    fetch("/assets/room-integration.json", { cache: "no-store" }),
+    fetch("/assets/scene-combined.json", { cache: "no-store" })
+  ]);
+  if (!integrationResponse.ok || !sceneResponse.ok) return [];
+
+  const integration = await integrationResponse.json();
+  const combined = await sceneResponse.json();
+  const localResidual = integration.validation?.deskLocalResidual_mm || [];
+  const roomResidual = integration.validation?.deskRoomResidual_mm || [];
+  const residuals = [...localResidual, ...roomResidual].map((value) => Math.abs(Number(value)));
+  const maxResidual = residuals.length ? Math.max(...residuals) : NaN;
+  const bounds = combined.bodyBounds_m || {};
+  const min = bounds.min || [];
+  const max = bounds.max || [];
+
+  return [
+    ["坐标锚点", integration.validation?.ok ? "validated" : "check"],
+    ["最大锚点误差", Number.isFinite(maxResidual) ? maxResidual.toFixed(3) + " mm" : "—"],
+    ["人体脚底", min.length >= 3 ? (min[2] * 1000).toFixed(1) + " mm" : "—"],
+    ["人体头顶", max.length >= 3 ? Math.round(max[2] * 1000) + " mm" : "—"]
+  ];
 }
 
 async function updateMetrics(mode) {
   try {
     if (mode === "room") showMetrics(await roomMetrics());
+    else if (mode === "combined") showMetrics(await combinedMetrics());
     else if (mode === "seated") showMetrics(await seatedMetrics());
     else showMetrics(await standingMetrics());
   } catch {
@@ -237,7 +271,7 @@ async function setMode(mode, options) {
   modeTitle.textContent = config.title;
   modeSummary.textContent = config.summary;
   assumption.textContent = config.assumption;
-  grid.visible = mode !== "room";
+  grid.visible = mode !== "room" && mode !== "combined";
   setLoading("正在加载 " + config.title + "…", false);
 
   try {
@@ -290,8 +324,9 @@ resetButton.addEventListener("click", () => {
 window.addEventListener("keydown", (event) => {
   if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
   if (event.key === "1") setMode("room");
-  if (event.key === "2") setMode("standing");
-  if (event.key === "3") setMode("seated");
+  if (event.key === "2") setMode("combined");
+  if (event.key === "3") setMode("standing");
+  if (event.key === "4") setMode("seated");
   if (event.key.toLowerCase() === "r" && currentObject) fitCamera(currentObject, currentMode);
 });
 

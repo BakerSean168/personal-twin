@@ -65,14 +65,41 @@ required = {
     "avatar-seated.glb",
     "seated-v1-report.json",
     "body-summary.json",
+    "room-integration.json",
+    "scene-combined.glb",
+    "scene-combined.json",
 }
 assets = set(manifest.get("assets", {}))
 missing = required - assets
 assert not missing, missing
+root = Path(sys.argv[1]).parent
 for name in required:
-    path = Path(sys.argv[1]).parent / name
+    path = root / name
     assert path.is_file() and path.stat().st_size > 0, path
-print(f"OK Twin Viewer: {len(required)} required assets")
+
+integration = json.loads((root / "room-integration.json").read_text(encoding="utf-8"))
+combined = json.loads((root / "scene-combined.json").read_text(encoding="utf-8"))
+seated = json.loads((root / "seated-v1-report.json").read_text(encoding="utf-8"))
+
+assert integration["validation"]["ok"] is True
+residuals = [
+    *integration["validation"]["deskLocalResidual_mm"],
+    *integration["validation"]["deskRoomResidual_mm"],
+]
+assert max(abs(float(value)) for value in residuals) <= integration["validation"]["tolerance_mm"]
+
+body_min = combined["bodyBounds_m"]["min"]
+body_max = combined["bodyBounds_m"]["max"]
+assert abs(body_min[2] * 1000.0) <= 10.0, body_min
+assert abs(body_max[2] * 1000.0 - seated["geometry"]["crownHeight_mm"]) <= 5.0, body_max
+assert abs(
+    (combined["bodyCenter_m"][0] - integration["stoolRoom_m"][0]) * 1000.0
+) <= 1.0
+
+print(
+    f"OK Twin Viewer: {len(required)} required assets; "
+    "integrated room/body transform validated"
+)
 PYVIEWER
 "$repo_root/scripts/viewer/browser-smoke.sh"
 
