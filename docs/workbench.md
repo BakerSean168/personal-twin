@@ -74,3 +74,14 @@ without manual Blender UI work:
     scripts/body/body-model.sh validate
 
 See docs/body-measurement-loop.md for the MPFB hm08 landmark contract and fitting semantics.
+
+## Seated ergonomics
+
+A private seated workstation scene can be generated from the fitted body profile and current desk
+setup without modifying the neutral avatar:
+
+    scripts/ergonomics/seated-scene.sh build
+    scripts/ergonomics/seated-scene.sh validate
+
+See docs/seated-ergonomics-v1.md for the local coordinate system, pose contract, validation rules
+and runtime outputs.

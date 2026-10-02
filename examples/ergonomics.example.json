@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "setupId": "example-desk",
+  "updatedAt": "2026-10-02",
+  "coordinateSystem": {
+    "origin": "stool_center_floor",
+    "xAxis": "right",
+    "yAxis": "desk_direction_negative_y",
+    "zAxis": "up",
+    "lengthUnit": "mm"
+  },
+  "objects": {
+    "stool": {"center": {"x": 0, "y": 0}, "width": 320, "depth": 240, "height": 460},
+    "desk": {"center": {"x": 0, "y": -650}, "width": 1600, "depth": 800, "height": 750},
+    "monitor": {"center": {"x": 0, "y": -900}, "width": 610, "depth": 50, "height": 360, "bottomZ": 950},
+    "keyboard": {"center": {"x": 0, "y": -520}, "width": 360, "depth": 140, "height": 25, "bottomZ": 750}
+  },
+  "postureIntent": {
+    "facing": "negative_y",
+    "hands": "keyboard",
+    "feet": "floor",
+    "torso": "upright"
+  }
+}
