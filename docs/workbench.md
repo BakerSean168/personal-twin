@@ -9,7 +9,7 @@ V1 deliberately reuses mature native editors instead of implementing a custom 3D
 - Blender 5.1.2 + MPFB 2.0.17: body/avatar generation and advanced 3D work.
 - Blender MCP 1.0.0: AI inspection and scene editing.
 - Personal Twin Memory MCP: durable private AI notes plus read-only access to canonical JSON.
-- Personal Twin Viewer: self-hosted Three.js read-only viewer for room, standing Body Twin and seated ergonomics GLB assets.
+- Personal Twin Viewer: self-hosted Three.js read-only viewer for room, integrated room + body, standing Body Twin and seated ergonomics GLB assets.
 - LinuxServer Webtop: maintenance/debug access to the native desktop applications only.
 - Tailscale Serve: private HTTPS ingress for the native editor, Twin Viewer, maintenance Webtop and MCP endpoints.
 
@@ -48,7 +48,7 @@ Run `./scripts/workbench-up.sh`.
 
 The start script builds the maintenance workbench and converter, temporarily stops both editor surfaces, reconciles `.sh3d` and `.sh3x` by modification time (newest wins), then starts the desktop/MCP engine and SweetHome3DJS on port 21020. It rebuilds the private Viewer assets from the neutral body, current room OBJ snapshot and seated ergonomics outputs, then starts the Three.js Viewer on port 21024. Tailscale Serve exposes the native editor, Viewer, maintenance Webtop and all three MCP services. It also regenerates `runtime/data/mcp/servers.json` from fixed local ports and the current node DNS name, so local and tailnet endpoints cannot silently drift. The public repository intentionally does not hardcode the private tailnet hostname.
 
-Normal room editing should happen in SweetHome3DJS on port 21020, where rendering runs in the user's browser. Twin Viewer on port 21024 is read-only and is the normal inspection surface for room, standing body and seated ergonomics views. Webtop on port 21029 is retained only for Blender/MPFB and maintenance/debug tasks.
+Normal room editing should happen in SweetHome3DJS on port 21020, where rendering runs in the user's browser. Twin Viewer on port 21024 is read-only and is the normal inspection surface for room, integrated room + body, standing body and seated ergonomics views. Webtop on port 21029 is retained only for Blender/MPFB and maintenance/debug tasks.
 
 ## Verify
 

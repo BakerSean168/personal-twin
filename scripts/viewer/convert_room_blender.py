@@ -52,6 +52,12 @@ payload = {
     "source": "/data/viewer/source/room-obj/export.obj",
     "sourceUnit": "cm",
     "outputUnit": "m",
+    "sourceAxes": {
+        "x": "sweet-home-3d-plan-right",
+        "y": "negative-sweet-home-3d-plan-down",
+        "z": "up",
+    },
+    "normalizationOffset_m": list(offset),
     "sourceBounds": {"min": list(mins), "max": list(maxs)},
     "normalizedBounds": {"min": list(normalized_min), "max": list(normalized_max)},
     "dimensions_m": list(normalized_max - normalized_min),

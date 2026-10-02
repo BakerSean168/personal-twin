@@ -7,12 +7,14 @@ image="${PERSONAL_TWIN_WORKBENCH_IMAGE:-personal-twin-workbench:local}"
 
 declare -A expected_title=(
   [room]="Bedroom"
+  [combined]="Integrated Room + Body"
   [standing]="Standing Body"
   [seated]="Seated Workstation"
 )
 
 declare -A expected_metric=(
   [room]="房间外包络"
+  [combined]="坐标锚点"
   [standing]="几何高度差"
   [seated]="视距"
 )
@@ -22,7 +24,7 @@ curl -fsS --max-time 5 "$viewer_url/healthz" >/dev/null
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
-for mode in room standing seated; do
+for mode in room combined standing seated; do
   dom="$tmp_dir/$mode.html"
   log="$tmp_dir/$mode.log"
 
