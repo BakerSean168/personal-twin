@@ -28,11 +28,12 @@ for mode in room combined standing seated; do
   dom="$tmp_dir/$mode.html"
   log="$tmp_dir/$mode.log"
 
-  docker run --rm --network host     --entrypoint /bin/sh     "$image"     -lc "xvfb-run -a chromium       --headless=new       --no-sandbox       --disable-dev-shm-usage       --enable-webgl       --enable-unsafe-swiftshader       --virtual-time-budget=10000       --dump-dom '$viewer_url/?mode=$mode'"     >"$dom" 2>"$log"
+  docker run --rm --network host     --entrypoint /bin/sh     "$image"     -lc "xvfb-run -a chromium       --headless=new       --no-sandbox       --disable-dev-shm-usage       --enable-webgl       --enable-unsafe-swiftshader       --virtual-time-budget=10000       --dump-dom '$viewer_url/?mode=$mode&renderProbe=1'"     >"$dom" 2>"$log"
 
   grep -Fq '<canvas data-engine="three.js' "$dom"
   grep -Fq "id=\"mode-title\">${expected_title[$mode]}<" "$dom"
   grep -Fq "${expected_metric[$mode]}" "$dom"
+  grep -Fq 'data-render-probe="ok"' "$dom"
 
   if grep -Eq 'id="loading" class="[^"]*is-visible' "$dom"; then
     printf 'Viewer mode %s never left loading state\n' "$mode" >&2

@@ -68,6 +68,9 @@ required = {
     "room-integration.json",
     "scene-combined.glb",
     "scene-combined.json",
+    "room-cutaway.glb",
+    "scene-combined-cutaway.glb",
+    "cutaway.json",
     "workstation-analysis.json",
 }
 assets = set(manifest.get("assets", {}))
@@ -82,8 +85,15 @@ integration = json.loads((root / "room-integration.json").read_text(encoding="ut
 combined = json.loads((root / "scene-combined.json").read_text(encoding="utf-8"))
 seated = json.loads((root / "seated-v1-report.json").read_text(encoding="utf-8"))
 analysis = json.loads((root / "workstation-analysis.json").read_text(encoding="utf-8"))
+cutaway = json.loads((root / "cutaway.json").read_text(encoding="utf-8"))
 
 assert integration["validation"]["ok"] is True
+assert cutaway["kind"] == "viewer-cutaway"
+assert cutaway["presentationOnly"] is True
+assert {"room-cutaway.glb", "scene-combined-cutaway.glb"} <= set(cutaway["outputs"])
+for output in cutaway["outputs"].values():
+    assert output["deletedFaces"] > 0
+    assert output["frontWallFaces"] > 0
 assert analysis["kind"] == "workstation-ergonomics-analysis"
 assert analysis["summary"]["priorityFindingCount"] >= 0
 assert analysis["checks"]["monitorViewingDistance"]["status"] in {"ok", "review"}

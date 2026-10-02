@@ -24,7 +24,7 @@ jobs:
       - run: bash -n scripts/body/body-model.sh
       - run: python -m py_compile scripts/ergonomics/seated_blender.py scripts/ergonomics/validate_setup.py
       - run: bash -n scripts/ergonomics/seated-scene.sh
-      - run: python -m py_compile scripts/viewer/export_standing_blender.py scripts/viewer/convert_room_blender.py
+      - run: python -m py_compile scripts/viewer/export_standing_blender.py scripts/viewer/convert_room_blender.py scripts/viewer/build_cutaway_blender.py
       - run: python -m py_compile scripts/integration/build_room_transform.py scripts/integration/build_combined_blender.py
       - run: python -m py_compile scripts/analysis/workstation_ergonomics.py
       - run: bash -n scripts/viewer/build-assets.sh scripts/viewer/browser-smoke.sh

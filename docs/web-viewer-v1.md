@@ -38,6 +38,9 @@ The expected generated assets are:
     room-integration.json
     scene-combined.glb
     scene-combined.json
+    room-cutaway.glb
+    scene-combined-cutaway.glb
+    cutaway.json
     workstation-analysis.json
     manifest.json
 
@@ -57,6 +60,7 @@ The command:
 - derives a minimal private body-summary.json from canonical body facts for the inspector UI;
 - validates the private Sweet Home 3D stool/desk anchors against the ergonomics setup;
 - builds a formal ergonomics-to-room transform and a combined room + seated-body GLB;
+- derives presentation-only cutaway GLBs that remove the ceiling and observation-side window wall without changing the canonical room;
 - derives a workstation ergonomics analysis from the seated report plus private desk setup;
 - emits manifest.json with SHA-256 and size metadata.
 
@@ -71,15 +75,19 @@ If the private room OBJ source is missing, the command leaves any existing room 
 - R: reset camera;
 - direct URLs: `?mode=room`, `?mode=combined`, `?mode=standing`, `?mode=seated`.
 
-The camera is fitted from each loaded GLB bounding box, so no model-specific hard-coded camera coordinates are required.
+Each mode has a presentation preset rather than sharing one generic camera fit. Room and Combined approach the open cutaway side; Standing frames the body mesh directly; Seated uses a side-front workstation view so the avatar is not hidden behind the monitor. Reset View and the R key restore the same mode-specific preset.
 
-`scripts/viewer/browser-smoke.sh` runs all four direct modes in Chromium under Xvfb and verifies that a Three.js canvas is created, the mode-specific inspector data is rendered and the loading state clears.
+`scripts/viewer/browser-smoke.sh` runs all four direct modes in Chromium under Xvfb and verifies that the mode-specific inspector data is rendered, the loading state clears, and an opt-in WebGL framebuffer probe sees enough non-background pixels and triangles to prove that the scene is actually visible. The probe is disabled during normal Viewer use.
 
 ## Deployment
 
 workbench-up.sh rebuilds Viewer assets after starting the Blender workbench, then starts the dedicated Nginx Viewer container. workbench-down.sh stops it with the other Personal Twin services.
 
 The Viewer binds only to 127.0.0.1:21024 on the host. Tailscale Serve provides the private HTTPS endpoint.
+
+## Presentation cutaway
+
+Room and Combined use derived cutaway GLBs in the Viewer. The cutaway removes the ceiling and the observation-side window wall, including window frame, glass and wall-mounted details, so the room can be inspected directly instead of only through the window. The original `room.glb` and `scene-combined.glb` remain intact; the cutaway is presentation-only and never becomes a source of truth.
 
 ## Room / ergonomics transform
 
