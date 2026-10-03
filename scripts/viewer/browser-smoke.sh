@@ -4,6 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
 viewer_url="${PERSONAL_TWIN_VIEWER_URL:-http://127.0.0.1:21024}"
 image="${PERSONAL_TWIN_WORKBENCH_IMAGE:-personal-twin-workbench:local}"
+window_size="900,700"
 
 declare -A expected_title=(
   [room]="Bedroom"
@@ -27,8 +28,11 @@ trap 'rm -rf "$tmp_dir"' EXIT
 for mode in room combined standing seated; do
   dom="$tmp_dir/$mode.html"
   log="$tmp_dir/$mode.log"
+  screenshot="$tmp_dir/$mode.png"
+  screenshot_log="$tmp_dir/$mode-screenshot.log"
+  url="$viewer_url/?mode=$mode&renderProbe=1"
 
-  docker run --rm --network host     --entrypoint /bin/sh     "$image"     -lc "xvfb-run -a chromium       --headless=new       --no-sandbox       --disable-dev-shm-usage       --enable-webgl       --enable-unsafe-swiftshader       --virtual-time-budget=10000       --dump-dom '$viewer_url/?mode=$mode&renderProbe=1'"     >"$dom" 2>"$log"
+  docker run --rm --network host --entrypoint /bin/sh "$image" -lc "xvfb-run -a chromium --headless=new --no-sandbox --disable-dev-shm-usage --enable-webgl --enable-unsafe-swiftshader --hide-scrollbars --window-size=$window_size --virtual-time-budget=10000 --dump-dom '$url'" >"$dom" 2>"$log"
 
   grep -Fq '<canvas data-engine="three.js' "$dom"
   grep -Fq "id=\"mode-title\">${expected_title[$mode]}<" "$dom"
@@ -40,6 +44,17 @@ for mode in room combined standing seated; do
     tail -80 "$log" >&2 || true
     exit 1
   fi
+
+  render_rect="$(grep -o 'data-render-rect="[^"]*"' "$dom" | head -1 | cut -d'"' -f2)"
+  if [[ -z "$render_rect" ]]; then
+    printf 'Viewer mode %s did not publish its viewport rectangle\n' "$mode" >&2
+    exit 1
+  fi
+
+  docker run --rm --network host -v "$tmp_dir:/out" --entrypoint /bin/sh "$image" -lc "xvfb-run -a chromium --headless=new --no-sandbox --disable-dev-shm-usage --enable-webgl --enable-unsafe-swiftshader --hide-scrollbars --window-size=$window_size --virtual-time-budget=10000 --screenshot=/out/$mode.png '$url'" >"$screenshot_log" 2>&1
+  test -s "$screenshot"
+
+  docker run --rm -v "$repo_root:/repo:ro" -v "$tmp_dir:/out:ro" --entrypoint /lsiopy/bin/python3 "$image" /repo/scripts/viewer/screenshot-acceptance.py --mode "$mode" --image "/out/$mode.png" --rect "$render_rect"
 
   printf 'OK Twin Viewer browser mode: %s\n' "$mode"
 done
