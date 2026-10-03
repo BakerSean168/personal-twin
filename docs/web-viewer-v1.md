@@ -10,12 +10,13 @@ The Docker image self-hosts Three.js 0.180.0 and its addons. The browser does no
 
 ## Modes
 
-The V1 UI exposes four modes:
+The V1 UI exposes three modes:
 
 1. Room — the current Sweet Home 3D room exported to OBJ, normalized to meters and converted to GLB.
-2. Integrated Room + Body — the real room plus the seated Body Twin transformed into the Sweet Home 3D furniture frame.
-3. Standing Body — the fitted neutral Body Twin exported from runtime/data/body/avatar.blend.
-4. Seated Ergonomics — the standalone derived seated workstation scene exported by the ergonomics pipeline.
+2. Integrated Room + Body — the real room plus the seated Body Twin transformed into the Sweet Home 3D furniture frame. This is also the single seated-ergonomics inspection surface.
+3. Standing Body — the measurement-fitted Body Twin exported from runtime/data/body/avatar.blend.
+
+The old standalone Seated Ergonomics mode was retired because it duplicated the integrated scene with proxy furniture and was less faithful than the real-room view.
 
 The Viewer is not a source of truth. Canonical JSON remains authoritative for measurements and the authoring files remain authoritative for editable 3D state.
 
@@ -32,8 +33,6 @@ The expected generated assets are:
     room.json
     avatar-standing.glb
     avatar-standing.json
-    avatar-seated.glb
-    seated-v1-report.json
     body-summary.json
     room-integration.json
     scene-combined.glb
@@ -54,9 +53,9 @@ With the Blender workbench running:
 
 The command:
 
-- exports the fitted neutral avatar to avatar-standing.glb;
+- exports the measurement-fitted avatar to avatar-standing.glb;
 - converts the private room OBJ snapshot to room.glb;
-- copies the current seated ergonomics GLB and report into the Viewer asset set;
+- keeps the seated Blender scene/report internal to the ergonomics pipeline and uses them to build the integrated room + body scene;
 - derives a minimal private body-summary.json from canonical body facts for the inspector UI;
 - validates the private Sweet Home 3D stool/desk anchors against the ergonomics setup;
 - builds a formal ergonomics-to-room transform and a combined room + seated-body GLB;
@@ -71,13 +70,13 @@ If the private room OBJ source is missing, the command leaves any existing room 
 - left mouse: orbit;
 - wheel: zoom;
 - right mouse: pan;
-- keys 1 / 2 / 3 / 4: room / combined / standing / seated;
+- keys 1 / 2 / 3: room / combined / standing;
 - R: reset camera;
-- direct URLs: `?mode=room`, `?mode=combined`, `?mode=standing`, `?mode=seated`.
+- direct URLs: `?mode=room`, `?mode=combined`, `?mode=standing`.
 
-Each mode has a presentation preset rather than sharing one generic camera fit. Room and Combined approach the open cutaway side; Standing frames the body mesh directly; Seated uses a side-front workstation view so the avatar is not hidden behind the monitor. Reset View and the R key restore the same mode-specific preset. The Viewer renders on demand rather than running an idle animation loop; this keeps the static WebGL frame stable in Chromium/browser compositors while avoiding unnecessary idle GPU work.
+Each mode has a presentation preset rather than sharing one generic camera fit. Room and Combined approach the open cutaway side; Standing frames the body mesh directly. Reset View and the R key restore the same mode-specific preset. The Viewer renders on demand rather than running an idle animation loop; this keeps the static WebGL frame stable in Chromium/browser compositors while avoiding unnecessary idle GPU work.
 
-`scripts/viewer/browser-smoke.sh` runs all four direct modes in Chromium under Xvfb. It verifies the mode-specific inspector data, loading-state completion, and the opt-in WebGL framebuffer probe, then captures a real 900×700 Chromium PNG and validates mode-specific visible-pixel coverage inside the actual viewport. This second gate catches camera/compositor regressions where triangles render successfully but the user-facing viewport is blank or grossly misframed. The framebuffer probe is disabled during normal Viewer use.
+`scripts/viewer/browser-smoke.sh` runs all three direct modes in Chromium under Xvfb. It verifies the mode-specific inspector data, loading-state completion, and the opt-in WebGL framebuffer probe, then captures a real 900×700 Chromium PNG and validates mode-specific visible-pixel coverage inside the actual viewport. This second gate catches camera/compositor regressions where triangles render successfully but the user-facing viewport is blank or grossly misframed. The framebuffer probe is disabled during normal Viewer use.
 
 ## Deployment
 

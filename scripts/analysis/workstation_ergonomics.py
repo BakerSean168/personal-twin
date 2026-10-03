@@ -65,8 +65,28 @@ lower_for_15 = max(0.0, target_drop_15 - vertical_drop)
 lower_for_top = max(0.0, top_above_eye)
 suggested_monitor_lowering = max(lower_for_15, lower_for_top)
 
+desk = objects["desk"]
+monitor = objects["monitor"]
 keyboard = objects["keyboard"]
 mouse = objects["mouse"]
+
+desk_top = float(desk["height"])
+monitor_bottom = float(monitor["bottomZ"])
+monitor_height = float(monitor["height"])
+monitor_top_abs = monitor_bottom + monitor_height
+monitor_bottom_above_desk = monitor_bottom - desk_top
+monitor_top_above_desk = monitor_top_abs - desk_top
+crown_minus_monitor_top = float(geometry["crownHeight_mm"]) - monitor_top_abs
+
+monitor_override = ((setup.get("source") or {}).get("manualMeasurements") or {}).get("monitorVertical")
+if monitor_override:
+    expected_bottom = float(monitor_override["bottomAboveDesk_mm"])
+    expected_top = float(monitor_override["topAboveDesk_mm"])
+    if abs(monitor_bottom_above_desk - expected_bottom) > 1.0:
+        raise RuntimeError("monitor bottom does not match the manual desk-relative measurement")
+    if abs(monitor_top_above_desk - expected_top) > 1.0:
+        raise RuntimeError("monitor top does not match the manual desk-relative measurement")
+
 keyboard_top = float(keyboard["bottomZ"]) + float(keyboard["height"])
 left_wrist_z = float(geometry["leftWrist_mm"][2])
 right_wrist_z = float(geometry["rightWrist_mm"][2])
@@ -217,6 +237,9 @@ payload = {
         "keyboardWristVerticalError_mm": keyboard_wrist_error,
         "mouseKeyboardEdgeGap_mm": mouse_keyboard_gap,
         "suggestedMouseMoveInward_mm": mouse_move_inward,
+        "monitorBottomAboveDesk_mm": monitor_bottom_above_desk,
+        "monitorTopAboveDesk_mm": monitor_top_above_desk,
+        "crownMinusMonitorTop_mm": crown_minus_monitor_top,
         "leftKneeClearanceProxy_mm": float(clearance["leftKneeToDeskUndersideProxy_mm"]),
         "rightKneeClearanceProxy_mm": float(clearance["rightKneeToDeskUndersideProxy_mm"]),
         "seatToDeskTop_mm": float(geometry["seatToDeskTop_mm"]),

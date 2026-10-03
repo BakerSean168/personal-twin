@@ -10,14 +10,12 @@ declare -A expected_title=(
   [room]="Bedroom"
   [combined]="Integrated Room + Body"
   [standing]="Standing Body"
-  [seated]="Seated Workstation"
 )
 
 declare -A expected_metric=(
   [room]="房间外包络"
   [combined]="显示器距离"
   [standing]="几何高度差"
-  [seated]="视距"
 )
 
 curl -fsS --max-time 5 "$viewer_url/healthz" >/dev/null
@@ -25,7 +23,7 @@ curl -fsS --max-time 5 "$viewer_url/healthz" >/dev/null
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
-for mode in room combined standing seated; do
+for mode in room combined standing; do
   dom="$tmp_dir/$mode.html"
   log="$tmp_dir/$mode.log"
   screenshot="$tmp_dir/$mode.png"
@@ -37,11 +35,15 @@ for mode in room combined standing seated; do
   grep -Fq '<canvas data-engine="three.js' "$dom"
   grep -Fq "id=\"mode-title\">${expected_title[$mode]}<" "$dom"
   grep -Fq "${expected_metric[$mode]}" "$dom"
-  if [[ "$mode" == "seated" ]]; then
+  if [[ "$mode" == "combined" ]]; then
     grep -Fq "参考检查" "$dom"
+    grep -Fq "屏幕离桌面" "$dom"
+    grep -Fq "215–575 mm" "$dom"
+    grep -Fq "模型头顶/屏顶" "$dom"
+    grep -Fq "+75 mm · 坐高待复核" "$dom"
     grep -Fq "显示器高度" "$dom"
-    grep -Fq "鼠标位置" "$dom"
-    grep -Fq "待确认" "$dom"
+    grep -Fq "模型建议下移 ≈72 mm · 暂缓" "$dom"
+    grep -Fq "鼠标布局" "$dom"
   fi
   grep -Fq 'data-render-probe="ok"' "$dom"
 
@@ -64,3 +66,11 @@ for mode in room combined standing seated; do
 
   printf 'OK Twin Viewer browser mode: %s\n' "$mode"
 done
+
+# Backward compatibility: the retired seated route resolves to the integrated
+# room + body view rather than falling back to an unrelated mode.
+legacy_dom="$tmp_dir/legacy-seated.html"
+docker run --rm --network host --entrypoint /bin/sh "$image" -lc "xvfb-run -a chromium --headless=new --no-sandbox --disable-dev-shm-usage --enable-webgl --enable-unsafe-swiftshader --hide-scrollbars --window-size=$window_size --virtual-time-budget=10000 --dump-dom '$viewer_url/?mode=seated'" >"$legacy_dom" 2>/dev/null
+grep -Fq 'id="mode-title">Integrated Room + Body<' "$legacy_dom"
+grep -Fq '参考检查' "$legacy_dom"
+printf 'OK Twin Viewer legacy seated route -> combined\n'

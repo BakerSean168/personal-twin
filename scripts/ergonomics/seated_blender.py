@@ -19,7 +19,6 @@ from bl_ext.user_default.mpfb.services.humanservice import HumanService
 
 NEUTRAL_PATH = "/data/body/avatar.blend"
 SEATED_PATH = "/data/ergonomics/avatar-seated.blend"
-GLB_PATH = "/data/ergonomics/avatar-seated.glb"
 REPORT_PATH = "/data/ergonomics/seated-v1-report.json"
 PROFILE_PATH = "/data/canonical/body/profile.json"
 SETUP_PATH = "/data/canonical/ergonomics/desk-setup.json"
@@ -434,14 +433,6 @@ def _build():
     _write_report(report)
 
     bpy.ops.wm.save_as_mainfile(filepath=SEATED_PATH)
-    bpy.ops.export_scene.gltf(
-        filepath=GLB_PATH,
-        export_format="GLB",
-        use_selection=False,
-        export_apply=False,
-        export_all_influences=True,
-    )
-
     return report
 
 

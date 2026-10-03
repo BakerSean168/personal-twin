@@ -14,22 +14,15 @@ const MODES = {
     url: "/assets/scene-combined-cutaway.glb",
     kicker: "PERSONAL TWIN",
     title: "Integrated Room + Body",
-    summary: "真实房间与坐姿 Body Twin 已通过 Sweet Home 3D 锚点统一到同一坐标系。",
-    assumption: "组合场景使用已验证的 room ↔ ergonomics transform；房间、人体和测量事实仍由各自 canonical/source 数据维护。"
+    summary: "真实房间与坐姿 Body Twin 已通过 Sweet Home 3D 锚点统一到同一坐标系，并在这里统一展示坐姿工学指标。",
+    assumption: "组合场景使用已验证的 room ↔ ergonomics transform；人体 mesh 只拟合部分尺寸，性别化体型与软组织轮廓尚未校准，不作为事实源。"
   },
   standing: {
     url: "/assets/avatar-standing.glb",
     kicker: "BODY TWIN",
     title: "Standing Body",
-    summary: "由 canonical body measurements 驱动的 neutral standing avatar。",
-    assumption: "人体 mesh 是测量数据的派生视图。站立模式不包含桌椅环境。"
-  },
-  seated: {
-    url: "/assets/avatar-seated.glb",
-    kicker: "ERGONOMICS",
-    title: "Seated Workstation",
-    summary: "基于当前 private canonical desk setup 和键鼠/显示器位置生成的坐姿工学场景。",
-    assumption: "坐姿用于空间与人体工学推理；刚性 mesh 不模拟软组织与座面压缩。"
+    summary: "由 canonical body measurements 驱动的 measurement-fitted standing avatar。",
+    assumption: "人体 mesh 是测量数据的派生视图；当前性别化体型与软组织轮廓尚未校准。站立模式不包含桌椅环境。"
   }
 };
 
@@ -257,51 +250,9 @@ function fitRoomCamera(root, mode) {
   );
 }
 
-function seatedEnvironmentBox(root) {
-  const box = new THREE.Box3();
-  let found = false;
-
-  root.traverse((node) => {
-    if (!node.isMesh || !node.name?.startsWith("Ergo_") || node.name === "Ergo_Floor") return;
-    const nodeBox = preciseBox(node);
-    if (nodeBox.isEmpty()) return;
-    box.union(nodeBox);
-    found = true;
-  });
-
-  return found ? box : preciseBox(root);
-}
-
-function fitSeatedEnvironmentCamera(root) {
-  const box = seatedEnvironmentBox(root);
-  if (box.isEmpty()) return;
-
-  const size = box.getSize(new THREE.Vector3());
-  const center = box.getCenter(new THREE.Vector3());
-  const maxSize = Math.max(size.x, size.y, size.z);
-
-  setCameraFov(48);
-  const fov = THREE.MathUtils.degToRad(camera.fov);
-  const distance = maxSize / (2 * Math.tan(fov / 2)) * 1.35;
-  const direction = new THREE.Vector3(1.75, 0.78, 1.18).normalize();
-  const target = center.clone();
-  target.y += size.y * 0.04;
-
-  applyCamera(
-    target.clone().addScaledVector(direction, distance),
-    target,
-    Math.max(distance / 250, 0.02),
-    Math.max(distance * 25, 35),
-    0.12,
-    14
-  );
-}
-
 function resetModeCamera(object, mode) {
   if (mode === "room" || mode === "combined") {
     fitRoomCamera(object, mode);
-  } else if (mode === "seated") {
-    fitSeatedEnvironmentCamera(object);
   } else {
     fitStandingCamera(object);
   }
@@ -346,8 +297,7 @@ function scheduleRenderProbe(mode) {
     const thresholds = {
       room: { pixels: 20000, triangles: 4000 },
       combined: { pixels: 30000, triangles: 30000 },
-      standing: { pixels: 8000, triangles: 20000 },
-      seated: { pixels: 15000, triangles: 30000 }
+      standing: { pixels: 8000, triangles: 20000 }
     };
     const threshold = thresholds[mode] || { pixels: 5000, triangles: 1000 };
     const ok =
@@ -388,53 +338,6 @@ async function roomMetrics() {
     ["来源单位", "Sweet Home 3D · cm"],
     ["Web 单位", "meter"]
   ];
-}
-
-async function seatedMetrics() {
-  const [seatedResponse, analysisResponse] = await Promise.all([
-    fetch("/assets/seated-v1-report.json", { cache: "no-store" }),
-    fetch("/assets/workstation-analysis.json", { cache: "no-store" })
-  ]);
-  if (!seatedResponse.ok) return [];
-
-  const data = await seatedResponse.json();
-  const items = [
-    ["视距", Math.round(data.display.viewDistanceY_mm) + " mm"],
-    ["眼-屏中心差", Math.round(data.display.eyeMinusMonitorCenter_mm) + " mm"],
-    ["膝部余量", Math.round(data.clearance.leftKneeToDeskUndersideProxy_mm) + " mm"],
-    ["脚底离地", data.geometry.footFloorGap_mm.toFixed(1) + " mm"],
-    ["座面高度", Math.round(data.geometry.seatTop_mm) + " mm"],
-    ["桌面高度", Math.round(data.geometry.deskTop_mm) + " mm"]
-  ];
-
-  if (!analysisResponse.ok) return items;
-
-  const analysis = await analysisResponse.json();
-  const summary = analysis.summary;
-  if (summary) {
-    items.unshift([
-      "参考检查",
-      String(summary.okChecks ?? 0) + " OK · " + String(summary.reviewChecks ?? 0) + " REVIEW"
-    ]);
-  }
-
-  const monitorFinding = (analysis.findings || []).find((item) => item.id === "monitor-height");
-  if (monitorFinding?.suggestedAdjustment?.amount_mm > 0) {
-    items.push([
-      "显示器高度",
-      "参考下移 ≈" + Math.round(monitorFinding.suggestedAdjustment.amount_mm) + " mm"
-    ]);
-  }
-
-  const mouseFinding = (analysis.findings || []).find((item) => item.id === "mouse-reach");
-  if (mouseFinding?.suggestedAdjustment?.amount_mm > 0) {
-    items.push([
-      "鼠标位置",
-      "模型建议内移 ≈" + Math.round(mouseFinding.suggestedAdjustment.amount_mm) + " mm · 待确认"
-    ]);
-  }
-
-  return items;
 }
 
 async function standingMetrics() {
@@ -493,6 +396,32 @@ async function combinedMetrics() {
   ];
 
   if (analysis) {
+    const summary = analysis.summary;
+    if (summary) {
+      items.push([
+        "参考检查",
+        String(summary.okChecks ?? 0) + " OK · " + String(summary.reviewChecks ?? 0) + " REVIEW"
+      ]);
+    }
+
+    const monitorBottom = analysis.derived?.monitorBottomAboveDesk_mm;
+    const monitorTop = analysis.derived?.monitorTopAboveDesk_mm;
+    if (Number.isFinite(monitorBottom) && Number.isFinite(monitorTop)) {
+      items.push([
+        "屏幕离桌面",
+        Math.round(monitorBottom) + "–" + Math.round(monitorTop) + " mm"
+      ]);
+    }
+
+    const crownDelta = analysis.derived?.crownMinusMonitorTop_mm;
+    if (Number.isFinite(crownDelta)) {
+      const sign = crownDelta > 0 ? "+" : "";
+      items.push([
+        "模型头顶/屏顶",
+        sign + Math.round(crownDelta) + " mm" + (Math.abs(crownDelta) >= 50 ? " · 坐高待复核" : "")
+      ]);
+    }
+
     const distance = analysis.checks?.monitorViewingDistance;
     if (distance) {
       items.push([
@@ -502,7 +431,14 @@ async function combinedMetrics() {
     }
 
     const monitorFinding = (analysis.findings || []).find((item) => item.id === "monitor-height");
-    if (monitorFinding?.suggestedAdjustment?.amount_mm > 0) {
+    if (Math.abs(crownDelta) >= 50) {
+      items.push([
+        "显示器高度",
+        monitorFinding?.suggestedAdjustment?.amount_mm > 0
+          ? "模型建议下移 ≈" + Math.round(monitorFinding.suggestedAdjustment.amount_mm) + " mm · 暂缓"
+          : "实测已记录 · 暂缓调整"
+      ]);
+    } else if (monitorFinding?.suggestedAdjustment?.amount_mm > 0) {
       items.push([
         "显示器高度",
         "建议下移 ≈" + Math.round(monitorFinding.suggestedAdjustment.amount_mm) + " mm"
@@ -535,7 +471,6 @@ async function combinedMetrics() {
 async function metricsForMode(mode) {
   if (mode === "room") return roomMetrics();
   if (mode === "combined") return combinedMetrics();
-  if (mode === "seated") return seatedMetrics();
   return standingMetrics();
 }
 
@@ -612,7 +547,6 @@ window.addEventListener("keydown", (event) => {
   if (event.key === "1") setMode("room");
   if (event.key === "2") setMode("combined");
   if (event.key === "3") setMode("standing");
-  if (event.key === "4") setMode("seated");
   if (event.key.toLowerCase() === "r" && currentObject) {
     resetModeCamera(currentObject, currentMode);
   }
@@ -621,4 +555,5 @@ window.addEventListener("keydown", (event) => {
 resize();
 loadAssetManifest();
 const requestedMode = new URLSearchParams(window.location.search).get("mode");
-setMode(MODES[requestedMode] ? requestedMode : "room");
+const initialMode = requestedMode === "seated" ? "combined" : requestedMode;
+setMode(MODES[initialMode] ? initialMode : "room");

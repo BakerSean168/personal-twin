@@ -17,7 +17,6 @@ COVERAGE = {
     "room": (0.20, 0.75),
     "combined": (0.35, 0.90),
     "standing": (0.025, 0.20),
-    "seated": (0.12, 0.60),
 }
 
 BRIGHT_CHANNEL_MIN = 70
