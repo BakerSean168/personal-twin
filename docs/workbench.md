@@ -17,7 +17,7 @@ V1 deliberately reuses mature native editors instead of implementing a custom 3D
 
 The runtime is intentionally ignored by Git:
 
-- `runtime/data/canonical/`: canonical private JSON.
+- `runtime/data/canonical/`: canonical private JSON, including measured body facts and the separate body-modeling configuration.
 - `runtime/data/spaces/`: Sweet Home 3D source files.
 - `runtime/data/body/`: Blender/MPFB body source files.
 - `runtime/data/ergonomics/`: seated workstation derived scenes and reports.
@@ -60,7 +60,7 @@ The smoke test verifies the native SweetHome3DJS page, the `bedroom.sh3x` home l
 
 The local runtime seeds the first private room from canonical JSON. Exact residential dimensions remain in ignored runtime/private data and are not committed to this public repository. The AI/desktop source is `runtime/data/spaces/bedroom/bedroom.sh3d`; the browser source is `runtime/data/spaces/bedroom/bedroom.sh3x`. `scripts/space-reconcile.sh` resolves restart-time drift, while `scripts/space-sync-from-web.sh` and `scripts/space-sync-to-web.sh` perform explicit live handoffs between the two official Sweet Home 3D formats. Writes use a temporary output and atomic rename so a failed conversion cannot truncate the current room file.
 
-The body asset at `runtime/data/body/avatar.blend` is the private measurement-fitted Body Twin derived from canonical measurements; sex/gender morphology is not calibrated in V1. Seated ergonomics is a separate derived scene and does not overwrite the neutral body. Viewer GLBs remain derived runtime assets rather than facts.
+The body asset at `runtime/data/body/avatar.blend` is the private morphology-aware, measurement-fitted Body Twin. Manual dimensions remain canonical facts, while `runtime/data/canonical/body/modeling.json` separately controls reproducible MPFB geometry macros; MPFB `gender` is a shape parameter, not an identity field. Seated ergonomics is a separate derived scene and does not overwrite the standing source body. Viewer GLBs remain derived runtime assets rather than facts.
 
 ## AI operating rule
 
@@ -82,10 +82,10 @@ See docs/body-measurement-loop.md for the MPFB hm08 landmark contract and fittin
 ## Seated ergonomics
 
 A private seated workstation scene can be generated from the fitted body profile and current desk
-setup without modifying the neutral avatar:
+setup without modifying the measurement-fitted source avatar:
 
     scripts/ergonomics/seated-scene.sh build
     scripts/ergonomics/seated-scene.sh validate
 
-See docs/seated-ergonomics-v1.md for the local coordinate system, pose contract, validation rules
+See docs/seated-ergonomics-v2.md for the local coordinate system, pose contract, validation rules
 and runtime outputs.

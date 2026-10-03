@@ -14,10 +14,24 @@ if ACTION not in {"measure", "fit", "validate"}:
     raise SystemExit(f"unsupported action: {ACTION}")
 
 PROFILE_PATH = Path("/data/canonical/body/profile.json")
+MODELING_PATH = Path("/data/canonical/body/modeling.json")
 if not PROFILE_PATH.exists():
     raise SystemExit(f"canonical body profile missing: {PROFILE_PATH}")
+if not MODELING_PATH.exists():
+    raise SystemExit(f"canonical body modeling config missing: {MODELING_PATH}")
 
 profile = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
+modeling = json.loads(MODELING_PATH.read_text(encoding="utf-8"))
+if modeling.get("profileId") != profile.get("profileId"):
+    raise SystemExit("body modeling profileId must match canonical body profile")
+mpfb_modeling = modeling.get("mpfb")
+if not isinstance(mpfb_modeling, dict):
+    raise SystemExit("body modeling config must contain an mpfb object")
+for name in ("gender", "cupsize", "firmness"):
+    value = mpfb_modeling.get(name)
+    if not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 <= float(value) <= 1:
+        raise SystemExit(f"body modeling mpfb.{name} must be a number in [0, 1]")
+
 measurements = profile.get("measurements", {})
 
 
@@ -43,6 +57,7 @@ def foot_mm() -> float | None:
 
 canonical = {
     "height_mm": mm("height"),
+    "weight_kg": mm("weight"),
     "shoulderBreadth_mm": mm("shoulderBreadth"),
     "chestCircumference_mm": mm("chestCircumference"),
     "waistCircumference_mm": mm("waistCircumference"),
@@ -57,6 +72,7 @@ prefix = (
     "ACTION = " + repr(ACTION) + "\n"
     "PROFILE_ID = " + repr(profile.get("profileId", "me")) + "\n"
     "CANONICAL = " + repr(canonical) + "\n"
+    "MORPHOLOGY = " + repr(mpfb_modeling) + "\n"
 )
 
 BLENDER_CODE = r'''
@@ -66,6 +82,7 @@ import math
 from collections import defaultdict
 from mathutils import Vector
 from bl_ext.user_default.mpfb.services.targetservice import TargetService
+from bl_ext.user_default.mpfb.entities.objectproperties import HumanObjectProperties
 
 OBJECT_NAME = "PersonalTwinAvatar"
 BODY_REPORT = "/data/body/body-measurements.json"
@@ -80,6 +97,11 @@ CROWN_VERTEX_IDS = [881]
 
 TOLERANCES_MM = {
     "height_mm": 5.0,
+    "shoulderBreadth_mm": 10.0,
+    "armLength_mm": 10.0,
+    "footLength_mm": 5.0,
+    "waistCircumference_mm": 10.0,
+    "hipCircumference_mm": 10.0,
     "chestCircumference_mm": 5.0,
     "inseam_mm": 10.0,
 }
@@ -257,21 +279,53 @@ def _section_loops(coords, z, epsilon=2e-5):
     return loops
 
 
+def _central_torso_loop(coords, z):
+    offsets_mm = [0, 0.5, -0.5, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5]
+    for offset_mm in offsets_mm:
+        candidate_z = z + offset_mm / 1000
+        loops = _section_loops(coords, candidate_z)
+        central = [loop for loop in loops if abs(loop["centroid"][0]) < 0.08]
+        if central:
+            return max(central, key=lambda loop: loop["area_m2"]), loops, candidate_z
+    raise RuntimeError(f"no central torso loop found within 5 mm of z={z:.4f}")
+
+
 def _chest_measurement(coords):
     nipple_group = "nippleTip" if _group_ids("nippleTip") else "nipple"
     chest_plane = _group_centroid(coords, nipple_group)
-    loops = _section_loops(coords, chest_plane.z)
-    central = [loop for loop in loops if abs(loop["centroid"][0]) < 0.08]
-    if not central:
-        raise RuntimeError("no central torso loop found at the chest plane")
-    torso = max(central, key=lambda loop: loop["area_m2"])
+    torso, loops, used_z = _central_torso_loop(coords, chest_plane.z)
     other_loops = [loop for loop in loops if loop is not torso]
     return {
         "circumference_mm": torso["perimeter_m"] * 1000,
-        "planeZ_mm": chest_plane.z * 1000,
+        "planeZ_mm": used_z * 1000,
+        "landmarkPlaneZ_mm": chest_plane.z * 1000,
         "torsoLoop": torso,
         "otherLoops": other_loops,
         "planeLandmarkGroup": nipple_group,
+    }
+
+
+def _waist_measurement(coords):
+    plane = _group_centroid(coords, "joint-spine-3")
+    torso, _, used_z = _central_torso_loop(coords, plane.z)
+    return {
+        "circumference_mm": torso["perimeter_m"] * 1000,
+        "planeZ_mm": used_z * 1000,
+        "landmarkPlaneZ_mm": plane.z * 1000,
+        "planeDefinition": "joint-spine-3 centroid Z",
+    }
+
+
+def _hip_measurement(coords):
+    pelvis = _group_centroid(coords, "joint-pelvis")
+    spine4 = _group_centroid(coords, "joint-spine-4")
+    z = pelvis.z + 0.4 * (spine4.z - pelvis.z)
+    torso, _, used_z = _central_torso_loop(coords, z)
+    return {
+        "circumference_mm": torso["perimeter_m"] * 1000,
+        "planeZ_mm": used_z * 1000,
+        "landmarkPlaneZ_mm": z * 1000,
+        "planeDefinition": "pelvis + 0.4 * (spine-4 - pelvis)",
     }
 
 
@@ -301,6 +355,8 @@ def _measure():
     seat = _average_point(coords, SEAT_VERTEX_IDS)
     crown = _average_point(coords, CROWN_VERTEX_IDS)
     chest = _chest_measurement(coords)
+    waist = _waist_measurement(coords)
+    hip = _hip_measurement(coords)
 
     left_shoulder = _group_centroid(coords, "joint-l-shoulder")
     right_shoulder = _group_centroid(coords, "joint-r-shoulder")
@@ -310,6 +366,9 @@ def _measure():
     height = _visible_body_height(coords)
     shoulder = (left_shoulder - right_shoulder).length * 1000
     arm = ((left_shoulder - left_elbow).length + (left_elbow - left_hand).length) * 1000
+    left_foot = _foot_length(coords, "left")
+    right_foot = _foot_length(coords, "right")
+    foot = (left_foot + right_foot) / 2
 
     return {
         "schemaVersion": 1,
@@ -318,13 +377,18 @@ def _measure():
             "height_mm": height,
             "shoulderBreadthProxy_mm": shoulder,
             "armChainProxy_mm": arm,
-            "leftFootLengthProxy_mm": _foot_length(coords, "left"),
-            "rightFootLengthProxy_mm": _foot_length(coords, "right"),
+            "footLengthProxy_mm": foot,
+            "leftFootLengthProxy_mm": left_foot,
+            "rightFootLengthProxy_mm": right_foot,
+            "waistCircumference_mm": waist["circumference_mm"],
+            "hipCircumference_mm": hip["circumference_mm"],
             "chestCircumference_mm": chest["circumference_mm"],
             "inseam_mm": (crotch.z - ground.z) * 1000,
             "sittingHeight_mm": (crown.z - seat.z) * 1000,
         },
         "chest": chest,
+        "waist": waist,
+        "hip": hip,
         "landmarks": {
             "ground": {
                 "kind": "vertexGroupCentroid",
@@ -358,6 +422,71 @@ def _remove_target(name):
         obj.shape_key_remove(key)
 
 
+def _apply_morphology():
+    before = TargetService.get_macro_info_dict_from_basemesh(obj)
+    applied = {}
+    for name in ("gender", "cupsize", "firmness"):
+        if name not in MORPHOLOGY:
+            continue
+        value = float(MORPHOLOGY[name])
+        HumanObjectProperties.set_value(name, value, entity_reference=obj)
+        applied[name] = value
+    if applied:
+        TargetService.reapply_macro_details(obj, remove_zero_weight_targets=True)
+    after = TargetService.get_macro_info_dict_from_basemesh(obj)
+    macro_keys = {}
+    if obj.data.shape_keys:
+        for key in obj.data.shape_keys.key_blocks:
+            if str(key.name).startswith("$md") and abs(float(key.value)) > 1e-8:
+                macro_keys[key.name] = float(key.value)
+    return {
+        "configured": applied,
+        "before": before,
+        "after": after,
+        "activeMacroTargets": macro_keys,
+    }
+
+
+def _measure_shoulder():
+    coords = _final_coords()
+    return (
+        _group_centroid(coords, "joint-l-shoulder")
+        - _group_centroid(coords, "joint-r-shoulder")
+    ).length * 1000
+
+
+def _measure_arm():
+    coords = _final_coords()
+    shoulder = _group_centroid(coords, "joint-l-shoulder")
+    elbow = _group_centroid(coords, "joint-l-elbow")
+    hand = _group_centroid(coords, "joint-l-hand")
+    return ((shoulder - elbow).length + (elbow - hand).length) * 1000
+
+
+def _measure_foot():
+    coords = _final_coords()
+    return (_foot_length(coords, "left") + _foot_length(coords, "right")) / 2
+
+
+def _measure_inseam():
+    coords = _final_coords()
+    crotch = _average_point(coords, CROTCH_VERTEX_IDS)
+    ground = _group_centroid(coords, "joint-ground")
+    return (crotch.z - ground.z) * 1000
+
+
+def _measure_waist():
+    return _waist_measurement(_final_coords())["circumference_mm"]
+
+
+def _measure_hip():
+    return _hip_measurement(_final_coords())["circumference_mm"]
+
+
+def _measure_chest():
+    return _chest_measurement(_final_coords())["circumference_mm"]
+
+
 def _fit_height(target_mm):
     baseline = _visible_body_height(_final_coords())
     if baseline <= 0:
@@ -377,57 +506,166 @@ def _fit_height(target_mm):
     }
 
 
-def _fit_chest(target_mm):
-    for name in ("measure-bust-circ-decr", "measure-bust-circ-incr"):
+def _fit_target_group(target_mm, measure_fn, decrease_names, increase_names, label, tolerance_mm):
+    all_names = tuple(dict.fromkeys(tuple(decrease_names) + tuple(increase_names)))
+    for name in all_names:
         _remove_target(name)
 
-    baseline = _chest_measurement(_final_coords())["circumference_mm"]
+    baseline = float(measure_fn())
     if abs(target_mm - baseline) <= 0.25:
-        return {"target": None, "weight": 0.0, "baseline_mm": baseline, "fitted_mm": baseline}
+        return {
+            "targets": [],
+            "weight": 0.0,
+            "baseline_mm": baseline,
+            "fitted_mm": baseline,
+        }
 
-    target_name = "measure-bust-circ-decr" if target_mm < baseline else "measure-bust-circ-incr"
-    path = TargetService.target_full_path(target_name)
-    if not path:
-        raise RuntimeError(f"MPFB target not found: {target_name}")
+    target_names = tuple(decrease_names if target_mm < baseline else increase_names)
+    keys = []
+    for name in target_names:
+        path = TargetService.target_full_path(name)
+        if not path:
+            raise RuntimeError(f"MPFB target not found: {name}")
+        keys.append(TargetService.load_target(obj, path, weight=0.0, name=name))
 
-    key = TargetService.load_target(obj, path, weight=0.0, name=target_name)
-    key.value = 1.0
-    endpoint = _chest_measurement(_final_coords())["circumference_mm"]
+    for key in keys:
+        key.value = 1.0
+    endpoint = float(measure_fn())
 
     reachable_low, reachable_high = sorted((baseline, endpoint))
     if not reachable_low <= target_mm <= reachable_high:
-        obj.shape_key_remove(key)
+        nearest = min((baseline, endpoint), key=lambda value: abs(value - target_mm))
+        if abs(nearest - target_mm) <= tolerance_mm:
+            weight = 0.0 if nearest == baseline else 1.0
+            for key in keys:
+                key.value = weight
+            return {
+                "targets": list(target_names),
+                "weight": weight,
+                "baseline_mm": baseline,
+                "endpoint_mm": endpoint,
+                "fitted_mm": float(measure_fn()),
+                "clampedToReachableRange": True,
+                "targetError_mm": nearest - target_mm,
+            }
+        for key in keys:
+            obj.shape_key_remove(key)
         raise RuntimeError(
-            f"chest target {target_mm:.2f} mm is outside MPFB target range "
+            f"{label} target {target_mm:.2f} mm is outside MPFB target range "
             f"{reachable_low:.2f}..{reachable_high:.2f} mm"
         )
 
     low, high = 0.0, 1.0
     increasing = endpoint > baseline
-    for _ in range(12):
+    for _ in range(10):
         mid = (low + high) / 2
-        key.value = mid
-        measured = _chest_measurement(_final_coords())["circumference_mm"]
+        for key in keys:
+            key.value = mid
+        measured = float(measure_fn())
         if (measured < target_mm) == increasing:
             low = mid
         else:
             high = mid
 
-    key.value = (low + high) / 2
-    fitted = _chest_measurement(_final_coords())["circumference_mm"]
+    weight = (low + high) / 2
+    for key in keys:
+        key.value = weight
+    fitted = float(measure_fn())
     return {
-        "target": target_name,
-        "weight": float(key.value),
+        "targets": list(target_names),
+        "weight": weight,
         "baseline_mm": baseline,
         "endpoint_mm": endpoint,
         "fitted_mm": fitted,
     }
 
 
+def _fit_shoulder(target_mm):
+    return _fit_target_group(
+        target_mm,
+        _measure_shoulder,
+        ("measure-shoulder-dist-decr",),
+        ("measure-shoulder-dist-incr",),
+        "shoulder breadth",
+        TOLERANCES_MM["shoulderBreadth_mm"],
+    )
+
+
+def _fit_arm(target_mm):
+    return _fit_target_group(
+        target_mm,
+        _measure_arm,
+        ("measure-upperarm-length-decr", "measure-lowerarm-length-decr"),
+        ("measure-upperarm-length-incr", "measure-lowerarm-length-incr"),
+        "arm length",
+        TOLERANCES_MM["armLength_mm"],
+    )
+
+
+def _fit_foot(target_mm):
+    return _fit_target_group(
+        target_mm,
+        _measure_foot,
+        ("l-foot-scale-depth-decr", "r-foot-scale-depth-decr"),
+        ("l-foot-scale-depth-incr", "r-foot-scale-depth-incr"),
+        "foot length",
+        TOLERANCES_MM["footLength_mm"],
+    )
+
+
+def _fit_waist(target_mm):
+    return _fit_target_group(
+        target_mm,
+        _measure_waist,
+        ("measure-waist-circ-decr",),
+        ("measure-waist-circ-incr",),
+        "waist circumference",
+        TOLERANCES_MM["waistCircumference_mm"],
+    )
+
+
+def _fit_hip(target_mm):
+    return _fit_target_group(
+        target_mm,
+        _measure_hip,
+        ("measure-hips-circ-decr",),
+        ("measure-hips-circ-incr",),
+        "hip circumference",
+        TOLERANCES_MM["hipCircumference_mm"],
+    )
+
+
+def _fit_chest(target_mm):
+    return _fit_target_group(
+        target_mm,
+        _measure_chest,
+        ("measure-bust-circ-decr",),
+        ("measure-bust-circ-incr",),
+        "chest circumference",
+        TOLERANCES_MM["chestCircumference_mm"],
+    )
+
+
+def _fit_inseam(target_mm):
+    return _fit_target_group(
+        target_mm,
+        _measure_inseam,
+        ("measure-upperleg-height-decr", "measure-lowerleg-height-decr"),
+        ("measure-upperleg-height-incr", "measure-lowerleg-height-incr"),
+        "inseam",
+        TOLERANCES_MM["inseam_mm"],
+    )
+
+
 def _validation(report):
     measured = report["measurements"]
     mapping = {
         "height_mm": "height_mm",
+        "shoulderBreadth_mm": "shoulderBreadthProxy_mm",
+        "armLength_mm": "armChainProxy_mm",
+        "footLength_mm": "footLengthProxy_mm",
+        "waistCircumference_mm": "waistCircumference_mm",
+        "hipCircumference_mm": "hipCircumference_mm",
         "chestCircumference_mm": "chestCircumference_mm",
         "inseam_mm": "inseam_mm",
     }
@@ -453,21 +691,61 @@ def _validation(report):
             "tolerance_mm": tolerance,
         }
 
+    macro_info = TargetService.get_macro_info_dict_from_basemesh(obj)
+    for name, target in MORPHOLOGY.items():
+        if name not in ("gender", "cupsize", "firmness"):
+            continue
+        value = float(macro_info[name])
+        error = value - float(target)
+        ok = abs(error) <= 1e-6
+        all_ok = all_ok and ok
+        checks[f"morphology.{name}"] = {
+            "status": "ok" if ok else "out-of-tolerance",
+            "target": float(target),
+            "measured": value,
+            "error": error,
+            "tolerance": 1e-6,
+        }
+
     return {"ok": all_ok, "checks": checks}
 
 
 fit_result = None
 if ACTION == "fit":
-    height_target = CANONICAL.get("height_mm")
-    chest_target = CANONICAL.get("chestCircumference_mm")
-    if height_target is None:
-        raise RuntimeError("canonical height is required for fit")
-    if chest_target is None:
-        raise RuntimeError("canonical chestCircumference is required for fit")
+    required = {
+        "height_mm": _fit_height,
+        "shoulderBreadth_mm": _fit_shoulder,
+        "armLength_mm": _fit_arm,
+        "footLength_mm": _fit_foot,
+        "waistCircumference_mm": _fit_waist,
+        "hipCircumference_mm": _fit_hip,
+        "chestCircumference_mm": _fit_chest,
+        "inseam_mm": _fit_inseam,
+    }
+    missing = [name for name in required if CANONICAL.get(name) is None]
+    if missing:
+        raise RuntimeError("canonical measurements required for fit: " + ", ".join(missing))
+
+    morphology_result = _apply_morphology()
+
+    coupled_passes = []
+    for _ in range(5):
+        height_fit = _fit_height(float(CANONICAL["height_mm"]))
+        inseam_fit = _fit_inseam(float(CANONICAL["inseam_mm"]))
+        coupled_passes.append({"height": height_fit, "inseam": inseam_fit})
+    height_fit = _fit_height(float(CANONICAL["height_mm"]))
 
     fit_result = {
-        "height": _fit_height(float(height_target)),
-        "chest": _fit_chest(float(chest_target)),
+        "morphology": morphology_result,
+        "coupledLegHeightPasses": coupled_passes,
+        "height": height_fit,
+        "inseam": coupled_passes[-1]["inseam"],
+        "shoulder": _fit_shoulder(float(CANONICAL["shoulderBreadth_mm"])),
+        "arm": _fit_arm(float(CANONICAL["armLength_mm"])),
+        "foot": _fit_foot(float(CANONICAL["footLength_mm"])),
+        "waist": _fit_waist(float(CANONICAL["waistCircumference_mm"])),
+        "hip": _fit_hip(float(CANONICAL["hipCircumference_mm"])),
+        "chest": _fit_chest(float(CANONICAL["chestCircumference_mm"])),
     }
 
 report = _measure()
@@ -483,8 +761,13 @@ landmark_report = {
     "landmarks": report["landmarks"],
     "measurementDefinitions": {
         "chestCircumference": "Closed main torso mesh intersection loop at nippleTip/nipple centroid Z; arm loops are excluded.",
+        "waistCircumference": "Closed central torso loop at joint-spine-3 centroid Z.",
+        "hipCircumference": "Closed central torso loop at pelvis + 0.4 * (spine-4 - pelvis) Z.",
+        "shoulderBreadth": "Distance between MPFB left/right shoulder joint-group centroids.",
+        "armLength": "Left shoulder-to-elbow plus elbow-to-hand joint-group centroid chain.",
+        "footLength": "Average left/right visible body Y extent below the foot-height guard.",
         "inseam": "Vertical distance from joint-ground centroid to the fixed crotch topology landmark.",
-        "sittingHeight": "Neutral-pose structural proxy from the bilateral seat-support topology landmark to the crown. Canonical sitting height is enforced by the seated ergonomics pose, not by neutral-body validation.",
+        "sittingHeight": "Neutral-pose structural proxy from the bilateral seat-support topology landmark to the crown. The seated V2 pose records canonical sitting height but does not enforce it while that measurement is under re-check.",
     },
 }
 
@@ -503,23 +786,51 @@ if ACTION == "fit":
     except FileNotFoundError:
         pass
 
-    existing["measurementInfrastructureVersion"] = "body-visible-height-v2"
+    existing["fitVersion"] = "body-v3-morphology-aware"
+    existing["measurementInfrastructureVersion"] = "body-morphology-fit-v3"
+    existing["canonicalTargets"] = {
+        "height_mm": CANONICAL.get("height_mm"),
+        "weight_kg": CANONICAL.get("weight_kg"),
+        "shoulderBreadth_mm": CANONICAL.get("shoulderBreadth_mm"),
+        "chestCircumference_mm": CANONICAL.get("chestCircumference_mm"),
+        "waistCircumference_mm": CANONICAL.get("waistCircumference_mm"),
+        "hipCircumference_mm": CANONICAL.get("hipCircumference_mm"),
+        "inseam_mm": CANONICAL.get("inseam_mm"),
+        "armLength_mm": CANONICAL.get("armLength_mm"),
+        "footLength_mm": CANONICAL.get("footLength_mm"),
+        "sittingHeight_mm": CANONICAL.get("sittingHeight_mm"),
+    }
     existing["measurementValidation"] = validation
-    existing.setdefault("directlyFitted", [])
-    if "chestCircumference" not in existing["directlyFitted"]:
-        existing["directlyFitted"].append("chestCircumference")
-    if "constraintOnly" in existing:
-        existing["constraintOnly"] = [
-            name for name in existing["constraintOnly"] if name != "chestCircumference"
-        ]
-    existing["validatedConstraints"] = ["inseam"]
-    existing["heightFit"] = fit_result["height"]
-    existing["chestFit"] = fit_result["chest"]
-    existing.setdefault("measuredAfterFit", {})
-    existing["measuredAfterFit"]["height_mm"] = report["measurements"]["height_mm"]
-    existing["measuredAfterFit"]["chestCircumference_mm"] = report["measurements"]["chestCircumference_mm"]
-    existing["measuredAfterFit"]["inseam_mm"] = report["measurements"]["inseam_mm"]
-    existing["measuredAfterFit"]["sittingHeight_mm"] = report["measurements"]["sittingHeight_mm"]
+    existing["morphology"] = fit_result["morphology"]
+    existing["directlyFitted"] = [
+        "height",
+        "shoulderBreadth",
+        "armLength",
+        "footLength",
+        "waistCircumference",
+        "hipCircumference",
+        "chestCircumference",
+        "inseam",
+    ]
+    existing["constraintOnly"] = ["weight", "sittingHeight"]
+    existing["validatedConstraints"] = []
+    existing["fitSolvers"] = {
+        "height": fit_result["height"],
+        "inseam": fit_result["inseam"],
+        "shoulderBreadth": fit_result["shoulder"],
+        "armLength": fit_result["arm"],
+        "footLength": fit_result["foot"],
+        "waistCircumference": fit_result["waist"],
+        "hipCircumference": fit_result["hip"],
+        "chestCircumference": fit_result["chest"],
+        "coupledLegHeightPasses": fit_result["coupledLegHeightPasses"],
+    }
+    existing["measuredAfterFit"] = dict(report["measurements"])
+    existing["limitations"] = [
+        "Weight is stored as a canonical fact and is not mapped to MPFB macro weight because kg-to-slider calibration is undefined.",
+        "Sitting height remains a canonical fact but is currently flagged for re-measurement; neither the standing mesh nor seated V2 contact placement directly fits it.",
+        "MPFB gender is a geometry macro from the private modeling configuration, not an identity field.",
+    ]
     existing["landmarkReports"] = {
         "measurements": BODY_REPORT,
         "landmarks": LANDMARK_REPORT,

@@ -19,17 +19,18 @@ from bl_ext.user_default.mpfb.services.humanservice import HumanService
 
 NEUTRAL_PATH = "/data/body/avatar.blend"
 SEATED_PATH = "/data/ergonomics/avatar-seated.blend"
-REPORT_PATH = "/data/ergonomics/seated-v1-report.json"
+REPORT_PATH = "/data/ergonomics/seated-report.json"
 PROFILE_PATH = "/data/canonical/body/profile.json"
 SETUP_PATH = "/data/canonical/ergonomics/desk-setup.json"
 
-POSE_VERSION = "seated-v1"
-HIP_DEG = -72.0
-KNEE_DEG = 72.0
+POSE_VERSION = "seated-v2-contact"
+HIP_DEG = -78.0
+KNEE_DEG = 80.0
 FOOT_FLOOR_TOL_MM = 10.0
-CROWN_TOL_MM = 5.0
+SEAT_CONTACT_TOL_MM = 10.0
 WRIST_TOL_MM = 5.0
 SYMMETRY_TOL_MM = 2.0
+SEAT_VERTEX_IDS = [4455, 11073]
 
 with open(PROFILE_PATH, "r", encoding="utf-8") as handle:
     profile = json.load(handle)
@@ -194,8 +195,9 @@ def _create_pose():
     for modifier in masks:
         modifier.show_viewport = False
 
-    # Symmetric sagittal-plane lower-body pose for the current height-normalized avatar.
-    # -72/+72 locks canonical sitting height while keeping the height-normalized feet on the floor.
+    # Symmetric sagittal-plane lower-body pose for the current morphology-aware avatar.
+    # The preset is solved against two geometric contacts: seat support at the stool top and
+    # visible feet at the floor. These are implementation rig parameters, not clinical angles.
     for side in ("L", "R"):
         hip = rig.pose.bones[f"upperleg01.{side}"]
         knee = rig.pose.bones[f"lowerleg01.{side}"]
@@ -208,14 +210,14 @@ def _create_pose():
 
     body_ids = _body_group_ids(body, "body")
     coords = _evaluated_coords(body)
-    crown_z = max(coords[index].z for index in body_ids)
 
     seat_height = _m(_object_spec("stool")["height"])
-    sitting_height = _m(_mm_measurement("sittingHeight"))
-    target_crown_z = seat_height + sitting_height
-    rig.location.z += target_crown_z - crown_z
+    seat_support = _centroid(coords, SEAT_VERTEX_IDS)
+    rig.location.z += seat_height - seat_support.z
 
     bpy.context.view_layer.update()
+    coords = _evaluated_coords(body)
+    crown_z = max(coords[index].z for index in body_ids)
 
     keyboard = _object_spec("keyboard")
     keyboard_x, keyboard_y = _center_xy_m(keyboard)
@@ -258,7 +260,9 @@ def _create_pose():
         modifier.show_viewport = True
 
     return body, rig, {
-        "targetCrownZ_m": target_crown_z,
+        "verticalAlignment": "seat-contact",
+        "seatTargetZ_m": seat_height,
+        "crownReferenceZ_m": crown_z,
         "wristTarget": {
             "x_m": wrist_target_x,
             "y_m": wrist_target_y,
@@ -299,8 +303,10 @@ def _report(body, rig, pose_targets):
         and seat_y - seat_d / 2 <= point.y <= seat_y + seat_d / 2
         and seat_h - 0.10 <= point.z <= seat_h + 0.20
     ]
-    seat_surface_low = min(seat_candidates) if seat_candidates else None
-    seat_gap = None if seat_surface_low is None else seat_surface_low - seat_h
+    if not seat_candidates:
+        raise RuntimeError("no body surface found over the stool footprint")
+    seat_surface_low = min(seat_candidates)
+    seat_gap = seat_surface_low - seat_h
 
     eye_ids = _body_group_ids(body, "joint-l-eye") + _body_group_ids(body, "joint-r-eye")
     eye = _centroid(coords, eye_ids)
@@ -327,13 +333,12 @@ def _report(body, rig, pose_targets):
         "knee_z_diff_mm": (knee_l.z - knee_r.z) * 1000,
     }
 
-    target_crown = pose_targets["targetCrownZ_m"]
     checks = {
-        "crown": {
-            "target_mm": target_crown * 1000,
-            "measured_mm": crown * 1000,
-            "error_mm": (crown - target_crown) * 1000,
-            "tolerance_mm": CROWN_TOL_MM,
+        "seatContact": {
+            "target_mm": 0.0,
+            "measured_mm": seat_gap * 1000,
+            "error_mm": seat_gap * 1000,
+            "tolerance_mm": SEAT_CONTACT_TOL_MM,
         },
         "feet": {
             "target_mm": 0.0,
@@ -374,10 +379,17 @@ def _report(body, rig, pose_targets):
         "profileId": profile.get("profileId", "me"),
         "setupId": setup.get("setupId"),
         "pose": {
+            "version": POSE_VERSION,
             "hipFlexionPreset_deg": abs(HIP_DEG),
             "kneeCounterRotationPreset_deg": KNEE_DEG,
+            "verticalAlignment": pose_targets["verticalAlignment"],
             "torso": "upright-neutral",
             "handTarget": "keyboard",
+        },
+        "constraints": {
+            "canonicalSittingHeight_mm": _mm_measurement("sittingHeight"),
+            "canonicalSittingHeightEnforced": False,
+            "verticalPlacement": "seat-contact + floor-contact validated",
         },
         "geometry": {
             "seatTop_mm": seat_h * 1000,
@@ -408,7 +420,8 @@ def _report(body, rig, pose_targets):
         "validation": {"ok": validation_ok, "checks": checks},
         "assumptions": [
             "The seated avatar is a derived ergonomic reference pose, not a medical assessment.",
-            "The rigid mesh does not model buttock or seat-cushion soft-tissue compression; seatSurfaceGapProxy is informational only.",
+            "Vertical placement is driven by seat contact and validated foot-floor contact; the currently disputed canonical sitting height is recorded but not enforced.",
+            "The rigid mesh does not model buttock or seat-cushion soft-tissue compression; seatSurfaceGapProxy is a rigid-contact proxy.",
             "Desk, stool, display and input-device positions are the current Sweet Home 3D V1 measurements/placements.",
             "Monitor-arm geometry is omitted from ergonomic collision metrics; the monitor envelope is retained.",
         ],
@@ -448,7 +461,13 @@ def _validate():
     keyboard_width, keyboard_depth, keyboard_height = _dims_m(keyboard)
     keyboard_x, keyboard_y = _center_xy_m(keyboard)
     pose_targets = {
-        "targetCrownZ_m": _m(_object_spec("stool")["height"]) + _m(_mm_measurement("sittingHeight")),
+        "verticalAlignment": "seat-contact",
+        "seatTargetZ_m": _m(_object_spec("stool")["height"]),
+        "crownReferenceZ_m": max(
+            point.z
+            for index, point in enumerate(_evaluated_coords(body))
+            if index in set(_body_group_ids(body, "body"))
+        ),
         "wristTarget": {
             "x_m": min(keyboard_width / 2, 0.18),
             "y_m": keyboard_y + keyboard_depth / 2 - 0.0125,

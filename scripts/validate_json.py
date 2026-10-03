@@ -10,6 +10,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 ROOT = Path(__file__).resolve().parents[1]
 CASES = [
     ("schemas/body.schema.json", "examples/body.example.json"),
+    ("schemas/body-modeling.schema.json", "examples/body-modeling.example.json"),
     ("schemas/space.schema.json", "examples/space.example.json"),
     ("schemas/furniture.schema.json", "examples/furniture.example.json"),
     ("schemas/ergonomics.schema.json", "examples/ergonomics.example.json"),

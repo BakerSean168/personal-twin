@@ -15,22 +15,31 @@ With the workbench running:
 measure is read-only with respect to the Blender model. It writes private runtime reports to
 runtime/data/body/body-measurements.json and runtime/data/body/landmarks.json.
 
-fit normalizes visible body height along world Z, fits chest circumference through the MPFB
-bust-circumference target, updates the runtime reports and avatar-fit.json, and saves avatar.blend.
+fit applies the private MPFB morphology configuration first, then re-fits standing height,
+inseam, shoulder breadth, arm length, foot length, waist, hips and chest to the canonical
+measurements. It updates the runtime reports and avatar-fit.json and saves avatar.blend only after
+the full fit pass completes.
 
 validate is read-only with respect to the Blender model and exits non-zero when a supported
 canonical measurement is outside its tolerance.
 
 Runtime body measurements remain ignored by Git.
 
-## Morphology boundary
+## Morphology contract
 
-V1 fits reproducible dimensions, not sex/gender morphology. It does not calibrate an MPFB
-male/female macro, secondary sexual characteristics, or soft-tissue distribution. A silhouette
-that looks more masculine or feminine is therefore a property of the current derived MPFB base
-shape plus fitted dimension targets, not a canonical fact about the person. Viewer labels must not
-present the mesh as a sex-accurate or fully body-shape-accurate twin until an explicit morphology
-contract is added and validated.
+Morphology is kept separate from manual body measurements. The private
+`runtime/data/canonical/body/modeling.json` file controls the MPFB geometry macros that must be
+reproducible when the avatar is rebuilt. Its public contract is
+`schemas/body-modeling.schema.json`.
+
+The MPFB `gender` value is explicitly a geometry parameter: 0 is the female-shaped endpoint and 1
+is the male-shaped endpoint in MPFB's target interpolation. It is not an identity field. The
+current fit also normalizes cup-size and firmness controls so stale female breast targets cannot
+survive a morphology change.
+
+Changing morphology invalidates the old measurement-target weights. The fit command therefore
+re-solves all supported dimensions after applying the macro configuration instead of treating a
+gender-slider change as an isolated cosmetic edit.
 
 ## Stable landmarks
 
@@ -54,9 +63,9 @@ Standing height is measured from the visible MPFB body vertex group, not from al
 The full base mesh also contains JointCubes and HelperGeometry whose extrema are not visible body
 surface and previously inflated the height result.
 
-The fit step normalizes only the avatar's Z scale to the canonical standing height. This preserves
-horizontal dimensions such as chest, shoulder breadth and foot length while avoiding a second
-multi-parameter solver.
+The height solver normalizes the avatar's Z scale to the canonical standing height. Because the
+morphology and leg-length targets can change vertical proportions, height and inseam are solved as
+a coupled iterative pair before the remaining dimension targets are fitted.
 
 ## Chest circumference
 
@@ -75,6 +84,16 @@ V1 instead:
 The fit step chooses measure-bust-circ-decr or measure-bust-circ-incr and binary-searches the
 shape-key weight until the torso loop matches the canonical chest circumference.
 
+## Waist and hips
+
+Waist circumference is the central closed torso loop at the `joint-spine-3` centroid Z. Hip
+circumference is the central closed torso loop at 40% of the vertical interval from
+`joint-pelvis` to `joint-spine-4`. These planes are topology/skeleton anchored so the measurement
+does not drift with world-space height scaling.
+
+The fit uses MPFB's `measure-waist-circ-*` and `measure-hips-circ-*` targets and binary-searches
+their legal 0..1 weights.
+
 ## Inseam
 
 Structural inseam is defined as:
@@ -82,7 +101,8 @@ Structural inseam is defined as:
     crotch landmark Z - joint-ground centroid Z
 
 This intentionally does not use hip-joint height. The crotch anchor sits on the fixed medial
-upper-leg topology.
+upper-leg topology. The V3 fit adjusts upper- and lower-leg height targets together, preserving a
+balanced leg-length change, and couples this with the standing-height solver.
 
 ## Sitting height
 
@@ -91,17 +111,31 @@ V1 uses a structural neutral-pose proxy:
     crown Z - seat-support landmark Z
 
 The seat-support pair is on the bilateral inferior/posterior buttock surface. This neutral-pose
-value is retained as a structural proxy only. Canonical sitting height is enforced in the seated
-ergonomics pose, where the stool top plus measured sitting height defines the crown target. It is
-therefore not part of neutral-body validation.
+value is retained as a structural proxy only. The seated V2 contact-driven pose does not enforce
+canonical sitting height while that private measurement is flagged for re-measurement; vertical
+placement is instead anchored by seat contact and validated foot-floor contact. Sitting height is
+therefore not part of standing-body validation and remains contextual evidence in the seated report.
 
-## Current V2 fitting policy
+## Current V3 fitting policy
 
-Visible standing height and chest circumference are directly fitted.
+The morphology-aware fit directly solves:
 
-Inseam is measured from stable landmarks and validated within tolerance. Sitting height remains a
-canonical fact, but its operational validation belongs to the seated ergonomics layer instead of
-the neutral standing mesh.
+- visible standing height;
+- shoulder breadth;
+- arm length;
+- average foot length;
+- waist circumference;
+- hip circumference;
+- chest circumference;
+- inseam.
+
+Every supported dimension is re-measured after fitting and must pass its tolerance before the
+result is accepted. Weight remains a canonical fact but is not mapped to MPFB's abstract weight
+macro because a kg-to-slider calibration has not been defined.
+
+Sitting height remains a canonical fact whose operational validation belongs to the seated
+ergonomics layer. Its current private measurement is explicitly flagged for re-measurement, so it
+must not drive furniture changes until that conflict is resolved.
 
 Canonical measurements remain the source of truth even when a mesh measurement is within
 tolerance.

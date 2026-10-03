@@ -1,4 +1,4 @@
-# Seated ergonomics V1
+# Seated ergonomics V2
 
 The seated ergonomics layer is a derived view built from two private canonical inputs:
 
@@ -13,7 +13,7 @@ than edited as an independent source of truth.
 The build command creates private runtime artifacts:
 
     runtime/data/ergonomics/avatar-seated.blend
-    runtime/data/ergonomics/seated-v1-report.json
+    runtime/data/ergonomics/seated-report.json
 
 The real desk setup stays under runtime/data/canonical/ergonomics and is ignored by Git.
 
@@ -41,33 +41,39 @@ It can be regenerated later from a formal furniture projection without changing 
 
 ## Pose contract
 
-V1 uses:
+V2 uses:
 
 - MPFB default rig;
 - symmetric sagittal lower-body rotations;
-- a canonical sitting-height constraint for the crown;
-- floor contact as the foot constraint;
+- the fixed hm08 seat-support landmark aligned to the measured stool top;
+- visible foot-floor contact as a validated constraint;
 - symmetric wrist IK targets derived from the keyboard envelope;
 - neutral upright torso.
 
-The current fitted avatar resolves the lower body at approximately 72 degrees hip flexion preset
-plus the corresponding 72 degree knee counter-rotation. These are implementation pose parameters,
-not claimed clinical joint-angle measurements.
+The current morphology-aware avatar resolves the lower body at an implementation preset of
+approximately 78 degrees hip flexion plus 80 degrees knee counter-rotation. A parameter sweep was
+used to select this pair because it simultaneously keeps the rigid seat-contact proxy and the
+visible feet within 1 mm of their measured support surfaces. These values are rig parameters, not
+claimed clinical joint-angle measurements.
+
+The canonical sitting-height measurement is still recorded in the report but is not used to
+translate the body vertically while that private measurement is flagged for re-measurement.
 
 ## Validation
 
 The build and validate commands check:
 
-- crown height against stool height plus canonical sitting height;
-- body floor gap;
+- seat-contact proxy against the measured stool top;
+- visible body floor gap;
 - left/right wrist height against the keyboard target;
 - bilateral wrist and knee symmetry.
 
-The report also records display geometry and desk clearance proxies.
+The report also records crown height, eye line, display geometry, desk clearance proxies and the
+disputed canonical sitting-height value as non-enforced context.
 
-Seat contact is intentionally informational in V1. A rigid surface mesh cannot reproduce buttock
-or cushion compression. The report therefore exposes seatSurfaceGapProxy rather than deforming the
-body solely to force visual contact and thereby corrupting the measured sitting-height constraint.
+A rigid surface mesh cannot reproduce buttock or cushion compression. The seat check therefore
+uses a 10 mm contact tolerance and reports `seatSurfaceGapProxy`; it does not claim soft-tissue
+accuracy. Crown height is now an output of the contact-driven pose instead of a hard target.
 
 ## Interpretation boundary
 
@@ -86,7 +92,7 @@ The external reference checks use public workstation guidance from OSHA and CCOH
 - monitor center approximately 15-20 degrees below horizontal eye level;
 - monitor lateral angle no farther than 35 degrees from straight ahead.
 
-Keyboard/wrist alignment, foot-floor gap and mouse-to-keyboard spacing use project heuristics only. They are marked separately in the report and are not represented as external standards. In particular, mouse placement in the V1 room model is approximate, so a mouse-reach finding is a prompt for confirmation rather than an automatic furniture change.
+Keyboard/wrist alignment, seat contact, foot-floor gap and mouse-to-keyboard spacing use project heuristics only. They are marked separately in the report and are not represented as external standards. In particular, mouse placement in the V1 room model is approximate, so a mouse-reach finding is a prompt for confirmation rather than an automatic furniture change.
 
 The Integrated Room + Body Viewer inspector is the single seated-ergonomics surface. It shows the overall reference-check count, desk-relative monitor envelope, modeled crown-to-monitor-top delta, monitor-height guidance and mouse-layout review values. The standalone proxy-furniture Seated Workstation view was retired because it duplicated the integrated scene and could diverge visually from the real room.
 

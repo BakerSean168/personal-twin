@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.example.invalid/personal-twin/body-modeling.schema.json",
+  "title": "Personal Twin Body Modeling Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "profileId", "mpfb"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "profileId": {"type": "string", "minLength": 1},
+    "updatedAt": {"type": "string", "format": "date"},
+    "mpfb": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gender", "cupsize", "firmness"],
+      "properties": {
+        "gender": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "MPFB geometry macro only: 0=female-shaped, 1=male-shaped. This is a modeling control, not an identity field."
+        },
+        "cupsize": {"type": "number", "minimum": 0, "maximum": 1},
+        "firmness": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "notes": {"type": "string"}
+  }
+}

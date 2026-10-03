@@ -33,7 +33,8 @@ docker cp \
 mkdir -p "$repo_root/runtime/data/viewer/assets"
 rm -f \
   "$repo_root/runtime/data/viewer/assets/avatar-seated.glb" \
-  "$repo_root/runtime/data/viewer/assets/seated-v1-report.json"
+  "$repo_root/runtime/data/viewer/assets/seated-v1-report.json" \
+  "$repo_root/runtime/data/viewer/assets/seated-report.json"
 
 docker exec "$container" \
   /opt/blender/blender \
@@ -49,7 +50,7 @@ else
   printf 'WARN room OBJ source missing; room.glb not rebuilt\n' >&2
 fi
 
-if [[ -f "$repo_root/runtime/data/ergonomics/seated-v1-report.json" \
+if [[ -f "$repo_root/runtime/data/ergonomics/seated-report.json" \
    && -f "$repo_root/runtime/data/canonical/ergonomics/desk-setup.json" ]]; then
   python3 "$repo_root/scripts/analysis/workstation_ergonomics.py" >/dev/null
 else

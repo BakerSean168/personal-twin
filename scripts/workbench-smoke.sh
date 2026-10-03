@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+viewer_url="${PERSONAL_TWIN_VIEWER_URL:-http://127.0.0.1:21024}"
 
 native_page="$(curl -fsS --max-time 10 http://127.0.0.1:21020/)"
 grep -Fq "SweetHome3DJSApplication" <<<"$native_page"
@@ -34,18 +35,18 @@ rm -f "$repo_root/runtime/data/spaces/bedroom/__smoke_web_roundtrip__.sh3d"
 printf 'OK furniture-rich browser .sh3x -> desktop/MCP .sh3d bridge\n'
 
 for attempt in $(seq 1 20); do
-  if curl -fsS --max-time 2 http://127.0.0.1:21024/healthz >/dev/null 2>&1; then
+  if curl -fsS --max-time 2 "$viewer_url/healthz" >/dev/null 2>&1; then
     break
   fi
   sleep 0.5
 done
-viewer_page="$(curl -fsS --max-time 10 http://127.0.0.1:21024/)"
+viewer_page="$(curl -fsS --max-time 10 "$viewer_url/")"
 grep -Fq "Personal Twin Viewer" <<<"$viewer_page"
-viewer_app="$(curl -fsS --max-time 10 http://127.0.0.1:21024/app.js)"
+viewer_app="$(curl -fsS --max-time 10 "$viewer_url/app.js")"
 grep -Fq "GLTFLoader" <<<"$viewer_app"
 python3 - \
   "$repo_root/runtime/data/viewer/assets/manifest.json" \
-  "$repo_root/runtime/data/ergonomics/seated-v1-report.json" <<'PYVIEWER'
+  "$repo_root/runtime/data/ergonomics/seated-report.json" <<'PYVIEWER'
 import json
 import sys
 from pathlib import Path
@@ -93,7 +94,16 @@ assert analysis["checks"]["monitorCenterDownAngle"]["status"] in {"ok", "review"
 assert analysis["checks"]["monitorTopRelativeToEye"]["status"] in {"ok", "review"}
 assert abs(float(analysis["derived"]["monitorBottomAboveDesk_mm"]) - 215.0) <= 1.0
 assert abs(float(analysis["derived"]["monitorTopAboveDesk_mm"]) - 575.0) <= 1.0
-assert abs(float(analysis["derived"]["crownMinusMonitorTop_mm"]) - 75.0) <= 5.0
+assert seated["poseVersion"] == "seated-v2-contact"
+assert seated["constraints"]["canonicalSittingHeightEnforced"] is False
+assert seated["validation"]["checks"]["seatContact"]["status"] == "ok"
+assert seated["validation"]["checks"]["feet"]["status"] == "ok"
+crown_delta = float(analysis["derived"]["crownMinusMonitorTop_mm"])
+assert 40.0 <= crown_delta <= 70.0, crown_delta
+monitor_finding = next(item for item in analysis["findings"] if item["id"] == "monitor-height")
+assert monitor_finding["status"] == "review"
+assert monitor_finding["suggestedAdjustment"]["action"] == "defer-monitor-adjustment"
+assert monitor_finding["suggestedAdjustment"]["apply"] is False
 assert len(analysis["references"]) >= 2
 residuals = [
     *integration["validation"]["deskLocalResidual_mm"],
@@ -312,10 +322,52 @@ PY
 test -f "$repo_root/runtime/data/spaces/bedroom/bedroom.sh3d"
 test -f "$repo_root/runtime/data/spaces/bedroom/bedroom.sh3x"
 test -f "$repo_root/runtime/data/body/avatar.blend"
+test -f "$repo_root/runtime/data/canonical/body/modeling.json"
+test -f "$repo_root/runtime/data/body/body-measurements.json"
+test -f "$repo_root/runtime/data/body/avatar-fit.json"
 test -f "$repo_root/runtime/data/viewer/assets/room.glb"
 test -f "$repo_root/runtime/data/viewer/assets/avatar-standing.glb"
 test -f "$repo_root/runtime/data/ergonomics/avatar-seated.blend"
-test -f "$repo_root/runtime/data/ergonomics/seated-v1-report.json"
+test -f "$repo_root/runtime/data/ergonomics/seated-report.json"
+
+python3 "$repo_root/scripts/body/validate_modeling.py" \
+  "$repo_root/runtime/data/canonical/body/modeling.json" >/dev/null
+python3 - \
+  "$repo_root/runtime/data/canonical/body/modeling.json" \
+  "$repo_root/runtime/data/body/body-measurements.json" \
+  "$repo_root/runtime/data/body/avatar-fit.json" <<'PYBODYFIT'
+import json
+import sys
+from pathlib import Path
+
+modeling = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+measurements = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+fit = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
+
+assert measurements["validation"]["ok"] is True
+assert fit["fitVersion"] == "body-v3-morphology-aware"
+assert fit["measurementInfrastructureVersion"] == "body-morphology-fit-v3"
+assert fit["measurementValidation"]["ok"] is True
+
+configured = modeling["mpfb"]
+after = fit["morphology"]["after"]
+for name in ("gender", "cupsize", "firmness"):
+    assert abs(float(after[name]) - float(configured[name])) <= 1e-6, (name, after[name], configured[name])
+
+required_fits = {
+    "height",
+    "shoulderBreadth",
+    "armLength",
+    "footLength",
+    "waistCircumference",
+    "hipCircumference",
+    "chestCircumference",
+    "inseam",
+}
+assert required_fits <= set(fit["directlyFitted"])
+print("OK Body V3 morphology + measurement fit")
+PYBODYFIT
+
 printf 'OK source assets present\n'
 
 python3 "$repo_root/scripts/memory-smoke.py"

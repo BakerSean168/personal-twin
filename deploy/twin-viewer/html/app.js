@@ -15,14 +15,14 @@ const MODES = {
     kicker: "PERSONAL TWIN",
     title: "Integrated Room + Body",
     summary: "真实房间与坐姿 Body Twin 已通过 Sweet Home 3D 锚点统一到同一坐标系，并在这里统一展示坐姿工学指标。",
-    assumption: "组合场景使用已验证的 room ↔ ergonomics transform；人体 mesh 只拟合部分尺寸，性别化体型与软组织轮廓尚未校准，不作为事实源。"
+    assumption: "组合场景使用已验证的 room ↔ ergonomics transform；人体几何使用显式 MPFB morphology 配置并重新拟合可测尺寸，软组织细节仍为模型近似，不作为事实源。"
   },
   standing: {
     url: "/assets/avatar-standing.glb",
     kicker: "BODY TWIN",
     title: "Standing Body",
     summary: "由 canonical body measurements 驱动的 measurement-fitted standing avatar。",
-    assumption: "人体 mesh 是测量数据的派生视图；当前性别化体型与软组织轮廓尚未校准。站立模式不包含桌椅环境。"
+    assumption: "人体 mesh 是测量数据的派生视图；MPFB morphology 参数显式受控并在变化后重新拟合可测尺寸，软组织细节仍为模型近似。站立模式不包含桌椅环境。"
   }
 };
 
@@ -418,7 +418,7 @@ async function combinedMetrics() {
       const sign = crownDelta > 0 ? "+" : "";
       items.push([
         "模型头顶/屏顶",
-        sign + Math.round(crownDelta) + " mm" + (Math.abs(crownDelta) >= 50 ? " · 坐高待复核" : "")
+        sign + Math.round(crownDelta) + " mm" + (Math.abs(crownDelta) >= 50 ? " · 坐姿高度待复核" : "")
       ]);
     }
 
@@ -435,7 +435,7 @@ async function combinedMetrics() {
       items.push([
         "显示器高度",
         monitorFinding?.suggestedAdjustment?.amount_mm > 0
-          ? "模型建议下移 ≈" + Math.round(monitorFinding.suggestedAdjustment.amount_mm) + " mm · 暂缓"
+          ? "模型参考差值 ≈" + Math.round(monitorFinding.suggestedAdjustment.amount_mm) + " mm · 暂缓调整"
           : "实测已记录 · 暂缓调整"
       ]);
     } else if (monitorFinding?.suggestedAdjustment?.amount_mm > 0) {

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "profileId": "example",
+  "updatedAt": "2026-01-01",
+  "mpfb": {
+    "gender": 0.5,
+    "cupsize": 0.5,
+    "firmness": 0.5
+  },
+  "notes": "Example uses MPFB-neutral morphology. Private profiles may choose a different geometry macro."
+}

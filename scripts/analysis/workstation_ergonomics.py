@@ -6,7 +6,7 @@ import math
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SEATED_REPORT = ROOT / "runtime/data/ergonomics/seated-v1-report.json"
+SEATED_REPORT = ROOT / "runtime/data/ergonomics/seated-report.json"
 DESK_SETUP = ROOT / "runtime/data/canonical/ergonomics/desk-setup.json"
 OUT = ROOT / "runtime/data/viewer/assets/workstation-analysis.json"
 
@@ -25,6 +25,7 @@ HEURISTICS = {
     "keyboardWristVerticalError_mm": {"max": 15.0},
     "mouseKeyboardEdgeGap_mm": {"preferredMax": 100.0},
     "feetFloorAbsGap_mm": {"max": 10.0},
+    "seatContactAbsGap_mm": {"max": 10.0},
 }
 
 
@@ -158,6 +159,14 @@ checks = {
         else "review",
         "heuristic": HEURISTICS["feetFloorAbsGap_mm"],
     },
+    "seatContact": {
+        "value": float(geometry["seatSurfaceGapProxy_mm"]),
+        "unit": "mm",
+        "status": "ok"
+        if abs(float(geometry["seatSurfaceGapProxy_mm"])) <= HEURISTICS["seatContactAbsGap_mm"]["max"]
+        else "review",
+        "heuristic": HEURISTICS["seatContactAbsGap_mm"],
+    },
     "mouseKeyboardEdgeGap": {
         "value": mouse_keyboard_gap,
         "unit": "mm",
@@ -175,12 +184,21 @@ if checks["monitorCenterDownAngle"]["status"] != "ok" or checks["monitorTopRelat
         {
             "id": "monitor-height",
             "priority": 1,
-            "status": "adjust",
-            "message": "Monitor is slightly high relative to the current seated eye line.",
+            "status": "review",
+            "message": (
+                "The modeled seated eye line places the monitor above the reference band, "
+                "but the private sitting-height/posture measurement is still under re-check. "
+                "Do not change the physical monitor from this model alone."
+            ),
             "suggestedAdjustment": {
-                "action": "lower-monitor",
+                "action": "defer-monitor-adjustment",
                 "amount_mm": suggested_monitor_lowering,
-                "basis": "reach at least 15 deg downward center gaze while keeping screen top at/below eye level",
+                "basis": (
+                    "modeled amount to reach at least 15 deg downward center gaze while keeping "
+                    "screen top at/below eye level; retain as diagnostic evidence until seated "
+                    "eye/crown height is re-measured"
+                ),
+                "apply": False,
             },
         }
     )
@@ -252,7 +270,8 @@ payload = {
     "findings": sorted(findings, key=lambda item: item["priority"]),
     "assumptions": [
         "This is a workstation layout reference analysis, not a medical diagnosis.",
-        "The seated pose is a rigid-body approximation and does not model soft-tissue compression.",
+        "The seated pose is a rigid-body approximation; vertical placement uses seat/floor contact and does not enforce the disputed sitting-height measurement.",
+        "The rigid mesh does not model soft-tissue compression at the seat contact.",
         "Mouse placement in the V1 room model is approximate; mouse-reach findings require visual confirmation.",
         "External ergonomic ranges are reference guidance, not absolute pass/fail safety limits.",
     ],

@@ -15,6 +15,9 @@ case "$action" in
     ;;
 esac
 
+python3 "$repo_root/scripts/body/validate_modeling.py" \
+  "$repo_root/runtime/data/canonical/body/modeling.json" >/dev/null
+
 container="$(docker compose -f "$repo_root/deploy/workbench/compose.yaml" ps -q workbench)"
 if [[ -z "$container" ]]; then
   printf 'Personal Twin workbench is not running\n' >&2
