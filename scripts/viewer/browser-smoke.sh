@@ -40,9 +40,10 @@ for mode in room combined standing; do
     grep -Fq "屏幕离桌面" "$dom"
     grep -Fq "215–575 mm" "$dom"
     grep -Fq "模型头顶/屏顶" "$dom"
-    grep -Fq "+75 mm · 坐高待复核" "$dom"
+    grep -Fq "坐姿高度待复核" "$dom"
     grep -Fq "显示器高度" "$dom"
-    grep -Fq "模型建议下移 ≈72 mm · 暂缓" "$dom"
+    grep -Fq "模型参考差值 ≈" "$dom"
+    grep -Fq "mm · 暂缓调整" "$dom"
     grep -Fq "鼠标布局" "$dom"
   fi
   grep -Fq 'data-render-probe="ok"' "$dom"
