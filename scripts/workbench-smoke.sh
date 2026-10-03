@@ -15,31 +15,23 @@ PY
 unzip -l "$repo_root/runtime/data/spaces/bedroom/bedroom.sh3x" | grep -Fq "Home.xml"
 printf 'OK native SweetHome3DJS editor\n'
 
-# SweetHome3DJS may save XML-only .sh3x archives. Verify the bridge accepts
-# that exact browser-side format and can turn it back into a desktop/MCP home.
-python3 - "$repo_root/runtime/data/spaces/bedroom/bedroom.sh3x" \
-           "$repo_root/runtime/data/spaces/bedroom/__smoke_web_only__.sh3x" <<'PY'
-import sys
-import zipfile
-from pathlib import Path
-
-src = Path(sys.argv[1])
-dst = Path(sys.argv[2])
-with zipfile.ZipFile(src) as archive:
-    home_xml = archive.read("Home.xml")
-with zipfile.ZipFile(dst, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-    archive.writestr("Home.xml", home_xml)
-PY
-
+# Verify the real browser archive, including embedded furniture models, can
+# round-trip back into a desktop/MCP .sh3d home. An XML-only synthetic archive
+# is not a valid substitute once the room contains embedded model resources.
 docker compose -f "$repo_root/deploy/space-converter/compose.yaml" run --rm \
   converter \
-  /data/__smoke_web_only__.sh3x \
+  /data/bedroom.sh3x \
   /data/__smoke_web_roundtrip__.sh3d >/dev/null
-unzip -l "$repo_root/runtime/data/spaces/bedroom/__smoke_web_roundtrip__.sh3d" | grep -Fq "Home.xml"
-rm -f \
-  "$repo_root/runtime/data/spaces/bedroom/__smoke_web_only__.sh3x" \
-  "$repo_root/runtime/data/spaces/bedroom/__smoke_web_roundtrip__.sh3d"
-printf 'OK browser .sh3x -> desktop/MCP .sh3d bridge\n'
+python3 - "$repo_root/runtime/data/spaces/bedroom/__smoke_web_roundtrip__.sh3d" <<'PY'
+import sys
+import zipfile
+
+with zipfile.ZipFile(sys.argv[1]) as archive:
+    home_xml = archive.read("Home.xml").decode("utf-8")
+assert "pieceOfFurniture-b72f029a-d2d7-47b9-a88d-66dcf143d557" in home_xml
+PY
+rm -f "$repo_root/runtime/data/spaces/bedroom/__smoke_web_roundtrip__.sh3d"
+printf 'OK furniture-rich browser .sh3x -> desktop/MCP .sh3d bridge\n'
 
 for attempt in $(seq 1 20); do
   if curl -fsS --max-time 2 http://127.0.0.1:21024/healthz >/dev/null 2>&1; then
