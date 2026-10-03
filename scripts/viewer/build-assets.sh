@@ -31,6 +31,9 @@ docker cp \
   "$container:$cutaway_script" >/dev/null
 
 mkdir -p "$repo_root/runtime/data/viewer/assets"
+rm -f \
+  "$repo_root/runtime/data/viewer/assets/avatar-seated.glb" \
+  "$repo_root/runtime/data/viewer/assets/seated-v1-report.json"
 
 docker exec "$container" \
   /opt/blender/blender \
@@ -44,18 +47,6 @@ if [[ -f "$repo_root/runtime/data/viewer/source/room-obj/export.obj" ]]; then
     --python "$room_script"
 else
   printf 'WARN room OBJ source missing; room.glb not rebuilt\n' >&2
-fi
-
-if [[ -f "$repo_root/runtime/data/ergonomics/avatar-seated.glb" ]]; then
-  cp -f \
-    "$repo_root/runtime/data/ergonomics/avatar-seated.glb" \
-    "$repo_root/runtime/data/viewer/assets/avatar-seated.glb"
-fi
-
-if [[ -f "$repo_root/runtime/data/ergonomics/seated-v1-report.json" ]]; then
-  cp -f \
-    "$repo_root/runtime/data/ergonomics/seated-v1-report.json" \
-    "$repo_root/runtime/data/viewer/assets/seated-v1-report.json"
 fi
 
 if [[ -f "$repo_root/runtime/data/ergonomics/seated-v1-report.json" \
@@ -145,8 +136,6 @@ for name in (
     "room.json",
     "avatar-standing.glb",
     "avatar-standing.json",
-    "avatar-seated.glb",
-    "seated-v1-report.json",
     "body-summary.json",
     "room-integration.json",
     "scene-combined.glb",

@@ -23,6 +23,15 @@ canonical measurement is outside its tolerance.
 
 Runtime body measurements remain ignored by Git.
 
+## Morphology boundary
+
+V1 fits reproducible dimensions, not sex/gender morphology. It does not calibrate an MPFB
+male/female macro, secondary sexual characteristics, or soft-tissue distribution. A silhouette
+that looks more masculine or feminine is therefore a property of the current derived MPFB base
+shape plus fitted dimension targets, not a canonical fact about the person. Viewer labels must not
+present the mesh as a sex-accurate or fully body-shape-accurate twin until an explicit morphology
+contract is added and validated.
+
 ## Stable landmarks
 
 The V1 landmark contract targets the MPFB hm08 base topology.

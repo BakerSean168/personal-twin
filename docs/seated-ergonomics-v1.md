@@ -5,7 +5,7 @@ The seated ergonomics layer is a derived view built from two private canonical i
 - the body measurement profile;
 - the current desk/stool/display/input-device setup.
 
-The neutral fitted avatar remains the body-shape source. The seated scene is regenerated rather
+The measurement-fitted avatar remains the body-shape source. The seated scene is regenerated rather
 than edited as an independent source of truth.
 
 ## Runtime outputs
@@ -13,7 +13,6 @@ than edited as an independent source of truth.
 The build command creates private runtime artifacts:
 
     runtime/data/ergonomics/avatar-seated.blend
-    runtime/data/ergonomics/avatar-seated.glb
     runtime/data/ergonomics/seated-v1-report.json
 
 The real desk setup stays under runtime/data/canonical/ergonomics and is ignored by Git.
@@ -23,12 +22,13 @@ The real desk setup stays under runtime/data/canonical/ergonomics and is ignored
     scripts/ergonomics/seated-scene.sh build
     scripts/ergonomics/seated-scene.sh validate
 
-build launches an isolated headless Blender process with the neutral avatar as its input, adds the
+build launches an isolated headless Blender process with the measurement-fitted avatar as its input, adds the
 MPFB default rig, creates the seated pose and simplified ergonomic environment, writes the report,
-saves the derived Blender scene, and exports GLB.
+and saves the derived Blender scene. The standalone seated GLB was retired; the Viewer consumes the
+seated pose only through the integrated room + body scene.
 
 validate launches another isolated Blender process from the saved seated scene and recomputes the
-validation report. The neutral avatar is never opened for writing.
+validation report. The measurement-fitted source avatar is never opened for writing.
 
 ## Coordinate convention
 
@@ -88,7 +88,7 @@ The external reference checks use public workstation guidance from OSHA and CCOH
 
 Keyboard/wrist alignment, foot-floor gap and mouse-to-keyboard spacing use project heuristics only. They are marked separately in the report and are not represented as external standards. In particular, mouse placement in the V1 room model is approximate, so a mouse-reach finding is a prompt for confirmation rather than an automatic furniture change.
 
-The Seated Workstation Viewer inspector surfaces this distinction directly. It shows the overall reference-check count, a monitor-height adjustment only when the derived analysis contains a monitor-height finding, and a mouse inward-move suggestion only as a modeled value marked `待确认`. If `workstation-analysis.json` is unavailable, the inspector degrades to the raw seated geometry metrics instead of inventing recommendations.
+The Integrated Room + Body Viewer inspector is the single seated-ergonomics surface. It shows the overall reference-check count, desk-relative monitor envelope, modeled crown-to-monitor-top delta, monitor-height guidance and mouse-layout review values. The standalone proxy-furniture Seated Workstation view was retired because it duplicated the integrated scene and could diverge visually from the real room.
 
 References:
 

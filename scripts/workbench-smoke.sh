@@ -51,7 +51,9 @@ viewer_page="$(curl -fsS --max-time 10 http://127.0.0.1:21024/)"
 grep -Fq "Personal Twin Viewer" <<<"$viewer_page"
 viewer_app="$(curl -fsS --max-time 10 http://127.0.0.1:21024/app.js)"
 grep -Fq "GLTFLoader" <<<"$viewer_app"
-python3 - "$repo_root/runtime/data/viewer/assets/manifest.json" <<'PYVIEWER'
+python3 - \
+  "$repo_root/runtime/data/viewer/assets/manifest.json" \
+  "$repo_root/runtime/data/ergonomics/seated-v1-report.json" <<'PYVIEWER'
 import json
 import sys
 from pathlib import Path
@@ -62,8 +64,6 @@ required = {
     "room.json",
     "avatar-standing.glb",
     "avatar-standing.json",
-    "avatar-seated.glb",
-    "seated-v1-report.json",
     "body-summary.json",
     "room-integration.json",
     "scene-combined.glb",
@@ -83,7 +83,7 @@ for name in required:
 
 integration = json.loads((root / "room-integration.json").read_text(encoding="utf-8"))
 combined = json.loads((root / "scene-combined.json").read_text(encoding="utf-8"))
-seated = json.loads((root / "seated-v1-report.json").read_text(encoding="utf-8"))
+seated = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
 analysis = json.loads((root / "workstation-analysis.json").read_text(encoding="utf-8"))
 cutaway = json.loads((root / "cutaway.json").read_text(encoding="utf-8"))
 
@@ -99,6 +99,9 @@ assert analysis["summary"]["priorityFindingCount"] >= 0
 assert analysis["checks"]["monitorViewingDistance"]["status"] in {"ok", "review"}
 assert analysis["checks"]["monitorCenterDownAngle"]["status"] in {"ok", "review"}
 assert analysis["checks"]["monitorTopRelativeToEye"]["status"] in {"ok", "review"}
+assert abs(float(analysis["derived"]["monitorBottomAboveDesk_mm"]) - 215.0) <= 1.0
+assert abs(float(analysis["derived"]["monitorTopAboveDesk_mm"]) - 575.0) <= 1.0
+assert abs(float(analysis["derived"]["crownMinusMonitorTop_mm"]) - 75.0) <= 5.0
 assert len(analysis["references"]) >= 2
 residuals = [
     *integration["validation"]["deskLocalResidual_mm"],
@@ -211,7 +214,21 @@ post({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}, si
 scene = call_tool(sid, 2, "get_state", {})
 assert scene["wallCount"] >= 4
 assert scene["roomCount"] >= 1
-print(f'OK Sweet Home 3D MCP: {scene["wallCount"]} walls, {scene["roomCount"]} room(s)')
+assert scene["furnitureCount"] >= 3
+furniture = {item["id"]: item for item in scene.get("furniture", [])}
+for required_id in (
+    "pieceOfFurniture-144ea215-ad2d-4ed0-b492-6f3e4fe9efdb",
+    "pieceOfFurniture-2e7c7120-e11b-498c-a874-fb243aa757e8",
+    "pieceOfFurniture-b72f029a-d2d7-47b9-a88d-66dcf143d557",
+):
+    assert required_id in furniture, required_id
+monitor = furniture["pieceOfFurniture-b72f029a-d2d7-47b9-a88d-66dcf143d557"]
+assert abs(float(monitor["elevation"]) - 98.5) <= 0.1
+assert abs(float(monitor["height"]) - 36.0) <= 0.1
+print(
+    f'OK Sweet Home 3D MCP: {scene["wallCount"]} walls, '
+    f'{scene["roomCount"]} room(s), {scene["furnitureCount"]} furniture/opening objects'
+)
 
 marker = "__personal_twin_write_smoke__"
 checkpoint = call_tool(sid, 3, "checkpoint", {"description": "Personal Twin reversible write smoke"})
@@ -305,7 +322,8 @@ test -f "$repo_root/runtime/data/spaces/bedroom/bedroom.sh3x"
 test -f "$repo_root/runtime/data/body/avatar.blend"
 test -f "$repo_root/runtime/data/viewer/assets/room.glb"
 test -f "$repo_root/runtime/data/viewer/assets/avatar-standing.glb"
-test -f "$repo_root/runtime/data/viewer/assets/avatar-seated.glb"
+test -f "$repo_root/runtime/data/ergonomics/avatar-seated.blend"
+test -f "$repo_root/runtime/data/ergonomics/seated-v1-report.json"
 printf 'OK source assets present\n'
 
 python3 "$repo_root/scripts/memory-smoke.py"
