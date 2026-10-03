@@ -37,6 +37,12 @@ for mode in room combined standing seated; do
   grep -Fq '<canvas data-engine="three.js' "$dom"
   grep -Fq "id=\"mode-title\">${expected_title[$mode]}<" "$dom"
   grep -Fq "${expected_metric[$mode]}" "$dom"
+  if [[ "$mode" == "seated" ]]; then
+    grep -Fq "参考检查" "$dom"
+    grep -Fq "显示器高度" "$dom"
+    grep -Fq "鼠标位置" "$dom"
+    grep -Fq "待确认" "$dom"
+  fi
   grep -Fq 'data-render-probe="ok"' "$dom"
 
   if grep -Eq 'id="loading" class="[^"]*is-visible' "$dom"; then
