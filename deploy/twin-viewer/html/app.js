@@ -59,8 +59,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 viewport.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.06;
+controls.enableDamping = false;
 controls.screenSpacePanning = true;
 controls.minDistance = 0.25;
 controls.maxDistance = 30;
@@ -84,7 +83,7 @@ let currentMode = "room";
 let currentObject = null;
 
 const BODY_MATERIAL = new THREE.MeshBasicMaterial({
-  color: 0xb9c4d8,
+  color: 0x7898cf,
   side: THREE.DoubleSide
 });
 
@@ -128,6 +127,10 @@ function prepareRoot(root) {
   });
 }
 
+function renderScene() {
+  renderer.render(scene, camera);
+}
+
 function resize() {
   const width = viewport.clientWidth;
   const height = viewport.clientHeight;
@@ -135,8 +138,11 @@ function resize() {
   renderer.setSize(width, height, false);
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
+  renderScene();
 }
 new ResizeObserver(resize).observe(viewport);
+
+controls.addEventListener("change", renderScene);
 
 function setLoading(message, error) {
   loading.textContent = message;
@@ -314,6 +320,13 @@ function scheduleRenderProbe(mode) {
     if (currentMode !== mode) return;
 
     renderer.render(scene, camera);
+    const rect = viewport.getBoundingClientRect();
+    viewport.dataset.renderRect = [
+      Math.round(rect.x),
+      Math.round(rect.y),
+      Math.round(rect.width),
+      Math.round(rect.height)
+    ].join(",");
     const gl = renderer.getContext();
     const width = renderer.domElement.width;
     const height = renderer.domElement.height;
@@ -516,6 +529,7 @@ async function setMode(mode, options) {
     currentObject = object;
     scene.add(object);
     if (reset) resetModeCamera(object, mode);
+    renderScene();
     scheduleRenderProbe(mode);
     const modeMetrics = await metricsForMode(mode);
     if (currentMode !== mode) return;
@@ -569,11 +583,6 @@ window.addEventListener("keydown", (event) => {
   if (event.key.toLowerCase() === "r" && currentObject) {
     resetModeCamera(currentObject, currentMode);
   }
-});
-
-renderer.setAnimationLoop(() => {
-  controls.update();
-  renderer.render(scene, camera);
 });
 
 resize();

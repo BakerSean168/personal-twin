@@ -75,9 +75,9 @@ If the private room OBJ source is missing, the command leaves any existing room 
 - R: reset camera;
 - direct URLs: `?mode=room`, `?mode=combined`, `?mode=standing`, `?mode=seated`.
 
-Each mode has a presentation preset rather than sharing one generic camera fit. Room and Combined approach the open cutaway side; Standing frames the body mesh directly; Seated uses a side-front workstation view so the avatar is not hidden behind the monitor. Reset View and the R key restore the same mode-specific preset.
+Each mode has a presentation preset rather than sharing one generic camera fit. Room and Combined approach the open cutaway side; Standing frames the body mesh directly; Seated uses a side-front workstation view so the avatar is not hidden behind the monitor. Reset View and the R key restore the same mode-specific preset. The Viewer renders on demand rather than running an idle animation loop; this keeps the static WebGL frame stable in Chromium/browser compositors while avoiding unnecessary idle GPU work.
 
-`scripts/viewer/browser-smoke.sh` runs all four direct modes in Chromium under Xvfb and verifies that the mode-specific inspector data is rendered, the loading state clears, and an opt-in WebGL framebuffer probe sees enough non-background pixels and triangles to prove that the scene is actually visible. The probe is disabled during normal Viewer use.
+`scripts/viewer/browser-smoke.sh` runs all four direct modes in Chromium under Xvfb. It verifies the mode-specific inspector data, loading-state completion, and the opt-in WebGL framebuffer probe, then captures a real 900×700 Chromium PNG and validates mode-specific visible-pixel coverage inside the actual viewport. This second gate catches camera/compositor regressions where triangles render successfully but the user-facing viewport is blank or grossly misframed. The framebuffer probe is disabled during normal Viewer use.
 
 ## Deployment
 
