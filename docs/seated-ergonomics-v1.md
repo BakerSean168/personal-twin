@@ -88,6 +88,8 @@ The external reference checks use public workstation guidance from OSHA and CCOH
 
 Keyboard/wrist alignment, foot-floor gap and mouse-to-keyboard spacing use project heuristics only. They are marked separately in the report and are not represented as external standards. In particular, mouse placement in the V1 room model is approximate, so a mouse-reach finding is a prompt for confirmation rather than an automatic furniture change.
 
+The Seated Workstation Viewer inspector surfaces this distinction directly. It shows the overall reference-check count, a monitor-height adjustment only when the derived analysis contains a monitor-height finding, and a mouse inward-move suggestion only as a modeled value marked `待确认`. If `workstation-analysis.json` is unavailable, the inspector degrades to the raw seated geometry metrics instead of inventing recommendations.
+
 References:
 
 - OSHA Computer Workstations - Monitors: https://www.osha.gov/etools/computer-workstations/components/monitors

@@ -391,10 +391,14 @@ async function roomMetrics() {
 }
 
 async function seatedMetrics() {
-  const response = await fetch("/assets/seated-v1-report.json", { cache: "no-store" });
-  if (!response.ok) return [];
-  const data = await response.json();
-  return [
+  const [seatedResponse, analysisResponse] = await Promise.all([
+    fetch("/assets/seated-v1-report.json", { cache: "no-store" }),
+    fetch("/assets/workstation-analysis.json", { cache: "no-store" })
+  ]);
+  if (!seatedResponse.ok) return [];
+
+  const data = await seatedResponse.json();
+  const items = [
     ["视距", Math.round(data.display.viewDistanceY_mm) + " mm"],
     ["眼-屏中心差", Math.round(data.display.eyeMinusMonitorCenter_mm) + " mm"],
     ["膝部余量", Math.round(data.clearance.leftKneeToDeskUndersideProxy_mm) + " mm"],
@@ -402,6 +406,35 @@ async function seatedMetrics() {
     ["座面高度", Math.round(data.geometry.seatTop_mm) + " mm"],
     ["桌面高度", Math.round(data.geometry.deskTop_mm) + " mm"]
   ];
+
+  if (!analysisResponse.ok) return items;
+
+  const analysis = await analysisResponse.json();
+  const summary = analysis.summary;
+  if (summary) {
+    items.unshift([
+      "参考检查",
+      String(summary.okChecks ?? 0) + " OK · " + String(summary.reviewChecks ?? 0) + " REVIEW"
+    ]);
+  }
+
+  const monitorFinding = (analysis.findings || []).find((item) => item.id === "monitor-height");
+  if (monitorFinding?.suggestedAdjustment?.amount_mm > 0) {
+    items.push([
+      "显示器高度",
+      "参考下移 ≈" + Math.round(monitorFinding.suggestedAdjustment.amount_mm) + " mm"
+    ]);
+  }
+
+  const mouseFinding = (analysis.findings || []).find((item) => item.id === "mouse-reach");
+  if (mouseFinding?.suggestedAdjustment?.amount_mm > 0) {
+    items.push([
+      "鼠标位置",
+      "模型建议内移 ≈" + Math.round(mouseFinding.suggestedAdjustment.amount_mm) + " mm · 待确认"
+    ]);
+  }
+
+  return items;
 }
 
 async function standingMetrics() {
