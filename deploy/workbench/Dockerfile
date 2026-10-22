@@ -31,7 +31,17 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
     tar \
     unzip \
     xz-utils \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' ca-certificates)" ge 20260816ubuntu0.26.04.1 \
+    && update-ca-certificates --fresh \
     && rm -rf /var/lib/apt/lists/*
+
+# Some ca-certificates-java builds retain the removed CA in an existing Java keystore.
+# Prevent Java/JSSE from continuing to trust the compromised eMudhra cross-signer.
+RUN set -eu; \
+    if keytool -list -cacerts -storepass changeit -alias 'debian:emsign_ecc_root_ca_-_g3.pem' >/dev/null 2>&1; then \
+      keytool -delete -cacerts -storepass changeit -alias 'debian:emsign_ecc_root_ca_-_g3.pem'; \
+    fi; \
+    ! keytool -list -cacerts -storepass changeit -alias 'debian:emsign_ecc_root_ca_-_g3.pem' >/dev/null 2>&1
 
 RUN mkdir -p /opt/sweethome3d /opt/blender /opt/personal-twin/extensions && \
     curl -fL --retry 3 \
